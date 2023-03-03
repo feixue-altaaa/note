@@ -1505,7 +1505,7 @@ ibd2sdi stu.ibd
 - 当insert的时候，产生的undo log日志只在回滚时需要，在事务提交后，可被立即删除
 - 而update、delete的时候，产生的undo log日志不仅在回滚时需要，在快照读时也需要，不会立即被删除
 
-### 版本链
+#### 版本链
 
 + 有一张表原始数据为
 
@@ -1531,6 +1531,96 @@ ibd2sdi stu.ibd
 
 > 最终我们发现，不同事务或相同事务对同一条记录进行修改，会导致该记录的undolog生成一条记录版本链表，链表的头部是最新的旧记录，链表尾部是最早的旧记录
 
+### ReadView
+
+- ReadView（读视图）是 快照读 SQL执行时MVCC提取数据的依据，记录并维护系统当前活跃的事务（未提交的）id
+- ReadView中包含了四个核心字段
+
+|      字段      |                        含义                        |
+| :------------: | :------------------------------------------------: |
+|     m_ids      |                当前活跃的事务ID集合                |
+|   min_trx_id   |                   最小活跃事务ID                   |
+|   max_trx_id   | 预分配事务1D,当前最大事务1D+1 (因为事务1D是自增的) |
+| creator_trx_id |               ReadView创建者的事务ID               |
+
++ 而在readview中就规定了版本链数据的访问规则：trx_id 代表当前undo log版本链对应事务ID
+
+|                条件                |               是否可以访问                |                   说明                    |
+| :--------------------------------: | :---------------------------------------: | :---------------------------------------: |
+|      trx_id == creator_trx_id      |              可以访问该版本               |    成立，说明数据是当前这个事务更改的     |
+|        trx_id < min_trx_id         |              可以访问该版本               |         成立，说明数据已经提交了          |
+|        trx id > max_trx_id         |             不可以访问该版本              | 成立，说明该事务是在 ReadView生成后才开启 |
+| min_trx_id <= trx_id <= max_trx_id | 如果trx_id不在m_ids中, 是可以访问该版本的 |          成立，说明数据已经提交           |
+
+- 不同的隔离级别，生成ReadView的时机不同
+- READ COMMITTED ：在事务中每一次执行快照读时生成ReadView
+- REPEATABLE READ：仅在事务中第一次执行快照读时生成ReadView，后续复用该ReadView
+
+### 原理分析
+
+#### RC隔离级别
+
++ RC隔离级别下，在事务中每一次执行快照读时生成ReadView
++ 我们就来分析事务5中，两次快照读读取数据，是如何获取数据的?
++ 在事务5中，查询了两次id为30的记录，由于隔离级别为Read Committed，所以每一次进行快照读，都会生成一个ReadView，那么两次生成的ReadView如下
+
+![MySQL-进阶篇](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302041109144.jpg)
+
+- 那么这两次快照读在获取数据时，就需要根据所生成的ReadView以及ReadView的版本链访问规则，到undolog版本链中匹配数据，最终决定此次快照读返回的数据
+- **先来看第一次快照读具体的读取过程**
+
+![image-20230204110952977](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302041109058.png)
+
++ 在进行匹配时，会从undo log的版本链，从上到下进行挨个匹配
++ 先匹配![image-20230204111039958](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302041110033.png)
+
++ 这条记录，这条记录对应的trx_id为4，也就是将4带入右侧的匹配规则中。 ①不满足 ②不满足 ③不满足 ④也不满足 ，
+  都不满足，则继续匹配undo log版本链的下一条
+
++ 再匹配第二条 ![image-20230204111137252](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302041111309.png)
++ 这条记录对应的trx_id为3，也就是将3带入右侧的匹配规则中。①不满足 ②不满足 ③不满足 ④也不满足 ，都不满足，则继续匹配undo log版本链的下一条
++ 再匹配第三条 ![image-20230204111208520](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302041112591.png)
++ 这条记录对应的trx_id为2，也就是将2带入右侧的匹配规则中。①不满足 ②满足 终止匹配，此次快照读，返回的数据就是版本链中记录的这条数据
+
+**再来看第二次快照读具体的读取过程**
+
+![image-20230204111251093](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302041112173.png)
+
++ 在进行匹配时，会从undo log的版本链，从上到下进行挨个匹配
++ 先匹配 ![image-20230204111333788](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302041113843.png)
++ 这条记录，这条记录对应的trx_id为4，也就是将4带入右侧的匹配规则中。 ①不满足 ②不满足 ③不满足 ④也不满足 ，都不满足，则继续匹配undo log版本链的下一条
++ 再匹配第二条![image-20230204111341663](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302041113712.png)
++ 这条记录对应的trx_id为3，也就是将3带入右侧的匹配规则中。①不满足 ②满足 。终止匹配，此次快照读，返回的数据就是版本链中记录的这条数据。
+
+#### RR隔离级别
+
++ RR隔离级别下，仅在事务中第一次执行快照读时生成ReadView，后续复用该ReadView。 而RR 是可重复读，在一个事务中，执行两次相同的select语句，查询到的结果是一样的。那MySQL是如何做到可重复读的呢? 我们简单分析一下就知道了
+
+![MySQL-进阶篇](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302041114233.jpg)
+
++ 我们看到，在RR隔离级别下，只是在事务中第一次快照读时生成ReadView，后续都是复用该ReadView，那么既然ReadView都一样， ReadView的版本链匹配规则也一样， 那么最终快照读返回的结果也是一样的
++ 所以呢，MVCC的实现原理就是通过 InnoDB表的隐藏字段、UndoLog 版本链、ReadView来实现的。而MVCC + 锁，则实现了事务的隔离性。 而一致性则是由redolog 与 undolog保证
+
+![MySQL-进阶篇](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302041115241.jpg)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1548,3 +1638,5 @@ ibd2sdi stu.ibd
 aio是什么
 
 为什么快照读需要undo log
+
+四种事务特性如何实现，自己再总结一遍
