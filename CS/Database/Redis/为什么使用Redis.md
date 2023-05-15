@@ -2,21 +2,21 @@
 
 ## 缓存
 
-毫无疑问这是Redis当今最为人熟知的使用场景。在提升服务器性能方面非常有效
++ 毫无疑问这是Redis当今最为人熟知的使用场景。在提升服务器性能方面非常有效
 
 ### 为什么查询更快
 
-我们都知道内存读写是比磁盘读写快很多的。Redis是基于内存存储实现的数据库，相对于数据存在磁盘的数据库，就省去磁盘磁盘I/O的消耗。MySQL等磁盘数据库，需要建立索引来加快查询效率，而Redis数据存放在内存，直接操作内存，所以就很快
++ 我们都知道内存读写是比磁盘读写快很多的。Redis是基于内存存储实现的数据库，相对于数据存在磁盘的数据库，就省去磁盘磁盘I/O的消耗。MySQL等磁盘数据库，需要建立索引来加快查询效率，而Redis数据存放在内存，直接操作内存，所以就很快
 
-![img](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0d7be13173814a43a60960fe59a48c61~tplv-k3u1fbpfcp-zoom-in-crop-mark:4536:0:0:0.image)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303131653366.png)
 
 ## 排行榜
 
-如果使用传统的关系型数据库来做这个事儿，非常的麻烦，而利用Redis的SortSet数据结构能够非常方便搞定
++ 如果使用传统的关系型数据库来做这个事儿，非常的麻烦，而利用Redis的SortSet数据结构能够非常方便搞定
 
 ## 计算器
 
-利用Redis中原子性的自增操作，我们可以统计类似用户点赞数、用户访问数等，这类操作如果用MySQL，频繁的读写会带来相当大的压力
++ 利用Redis中原子性的自增操作，我们可以统计类似用户点赞数、用户访问数等，这类操作如果用MySQL，频繁的读写会带来相当大的压力
 
 ## 限流
 
@@ -26,14 +26,12 @@
 
 + 某api被各式各样系统广泛调用，严重消耗网络、内存等资源，需要合理限流
 
-+ 淘宝获取ip所在城市接口、微信公众号识别微信用户等开发接口，免费提供给用户时需要限流，更
-  具有实时性和准确性的接口需要付费
++ 淘宝获取ip所在城市接口、微信公众号识别微信用户等开发接口，免费提供给用户时需要限流，更具有实时性和准确性的接口需要付费
 
 ### API限流自定义注解
 
 + 首先我们编写注解类 AccessLimit ，使用注解方式在方法上限流更优雅更方便！
-  三个参数分别代表有效时间、最大访问次数、是否需要登录，可以理解为 seconds 内最多访问
-  maxCount 次。
++ 三个参数分别代表有效时间、最大访问次数、是否需要登录，可以理解为 seconds 内最多访问 maxCount 次
 
 ```java
 package com.maxuan.service;
@@ -52,9 +50,9 @@ public @interface AccessLimit {
 
 ### 限流的思路
 
-+ 通过 **ip:api** 路径的作为key，访问次数为value的方式对某一用户的某一请求进行唯一标识
-  每次访问的时候判断 key 是否存在，是否 count 超过了限制的访问次数
-  若访问超出限制，则应 response 返回 msg:请求过于频繁 给前端予以展示
++ 通过 **ip:api** 路径作为key，访问次数为value的方式对某一用户的某一请求进行唯一标识
++ 每次访问的时候判断 key 是否存在，是否 count 超过了限制的访问次数
++ 若访问超出限制，则应 response 返回 msg:请求过于频繁 给前端予以展示
 
 ```java
 package com.maxuan.component;
@@ -71,7 +69,7 @@ public class AccessLimtInterceptor implements HandlerInterceptor {
     private RedisUtil redisUtil;
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse
-                             response, Object handler) throws Exception {
+                        response, Object handler) throws Exception {
         if (handler instanceof HandlerMethod) {
             HandlerMethod hm = (HandlerMethod) handler;
             AccessLimit accessLimit = hm.getMethodAnnotation(AccessLimit.class);
@@ -82,7 +80,7 @@ public class AccessLimtInterceptor implements HandlerInterceptor {
             int maxCount = accessLimit.maxCount();
             boolean needLogin = accessLimit.needLogin();
             if (needLogin) {
-                //判断是否登录
+            //判断是否登录
             }
             //客户端ip地址
             String ip = request.getRemoteAddr();
@@ -167,6 +165,8 @@ public class AccessControler {
 ## Session共享
 
 [session + redis 实现session 共享原理和原因][https://blog.csdn.net/qq_37306041/article/details/107948763]
+
+## 分布式锁
 
 ## 简单消息队列(不常用)
 

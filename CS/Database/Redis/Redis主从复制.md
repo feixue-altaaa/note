@@ -7,9 +7,7 @@
 - 读写分离，性能扩展
 - 容灾快速恢复
 
-
-
-![img](https://cdn.nlark.com/yuque/0/2022/jpeg/29671373/1659260823416-6821d6fa-6c46-4f09-bb41-83fa1b566a3e.jpeg)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303141604945.jpeg)
 
 # 复制原理
 
@@ -19,7 +17,7 @@
 - 增量复制：Master继续将新的所有收集到的修改命令依次传给slave，完成同步
 - 但是只要是重新连接master，一次完全同步（全量复制)将被自动执行
 
-![img](https://cdn.nlark.com/yuque/0/2022/jpeg/29671373/1659260827006-e88ac496-7324-4531-b0d2-1c552a83ace4.jpeg)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303141604576.jpeg)
 
 # 怎么玩：主从复制
 

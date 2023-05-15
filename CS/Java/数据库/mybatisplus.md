@@ -73,11 +73,11 @@ table-prefix: t_
 ### @TableId的value属性
 
 - 若实体类中主键对应的属性为id，而表中表示主键的字段为uid，此时若只在属性id上添加注解@TableId，则抛出异常Unknown column 'id' in 'field list'，即MyBatis-Plus仍然会将id作为表的主键操作，而表中表示主键的是字段uid
-- 此时需要通过@TableId注解的value属性，指定表中的主键字段，@TableId("uid")或@TableId(value="uid")
+- 此时需要通过@TableId注解的value属性，**指定表中的主键字段**，@TableId("uid")或@TableId(value="uid")
 
 ### @TableId的type属性
 
-+ type属性用来定义主键策略
++ type属性用来**定义主键策略**
 
 |            值            |                             描述                             |
 | :----------------------: | :----------------------------------------------------------: |
@@ -119,7 +119,7 @@ id-type: auto
 + 垂直分表适合将表中某些不常用且占了大量空间的列拆分出去。例如，前面示意图中的 nickname 和 description 字段，假设我们是一个婚恋网站，用户在筛选其他用户的时候，主要是用 age 和 sex 两个字段进行查询，而 nickname 和 description 两个字段主要用于展示，一般不会在业务查询中用到。description 本身又比较长，因此我们可以将这两个字段独立到另外一张表中，这样在查询 age 和 sex 时，就能带来一定的性能提升
 #### 水平分表
 
-- 水平分表适合表行数特别大的表，有的公司要求单表行数超过 5000 万就必须进行分表，这个数字可以作为参考，但并不是绝对标准，关键还是要看表的访问性能。对于一些比较复杂的表，可能超过 1000万就要分表了；而对于一些简单的表，即使存储数据超过 1 亿行，也可以不分表。但不管怎样，当看到表的数据量达到千万级别时，作为架构师就要警觉起来，因为这很可能是架构的性能瓶颈或者隐患
+- 水平分表适合表行数特别大的表，有的公司要求单表行数超过 **5000 万**就必须进行分表，这个数字可以作为参考，但并不是绝对标准，关键还是要看表的访问性能。对于一些比较复杂的表，可能超过 1000万就要分表了；而对于一些简单的表，即使存储数据超过 1 亿行，也可以不分表。但不管怎样，当看到表的数据量达到千万级别时，作为架构师就要警觉起来，因为这很可能是架构的性能瓶颈或者隐患
 - 水平分表相比垂直分表，会引入更多的复杂性，例如要求全局唯一的数据id该如何处理
 
 #### 主键自增
@@ -155,13 +155,11 @@ id-type: auto
 
 + 情况1
 
-  若实体类中的属性使用的是驼峰命名风格，而表中的字段使用的是下划线命名风格
+  若实体类中的属性使用的是**驼峰命名**风格，而表中的字段使用的是下划线命名风格
 
-  例如实体类属性userName，表中字段user_name
+  例如实体类属性userName，表中字0段user_name
 
   此时MyBatis-Plus会自动将下划线命名风格转化为驼峰命名风格
-
-  相当于在MyBatis中配置
 
 + 情况2
 
@@ -468,7 +466,7 @@ Page<User> selectPageVo(@Param("page") Page<User> page, @Param("age") Integer ag
     <sql id="BaseColumns">id,username,age,email</sql>
 <!--IPage<User> selectPageVo(Page<User> page, Integer age);-->
     <select id="selectPageVo" resultType="User">
-SELECT <include refid="BaseColumns"></include> FROM t_user WHERE age > #
+SELECT <include refid="BaseColumns"></include> FROM t_user WHERE age> #
 {age}
 </select>
 ```

@@ -1,4 +1,4 @@
-#### 在Idea中隐藏指定文件/文件
+# 在Idea中隐藏指定文件/文件
 
 ​		既然是在Idea下做隐藏功能，肯定隶属于Idea的设置，设置方式如下。
 
@@ -22,7 +22,7 @@
    3. 输入要隐藏的名称，支持*号通配符
    4. 回车确认添加
 
-#### **自动提示功能消失解决方案**
+# **自动提示功能消失解决方案**
 
 ​		在做程序的过程中，可能有些小伙伴会基于各种各样的原因导致配置文件中没有提示，这个确实很让人头疼，所以下面给大家说一下如果自动提示功能消失了怎么解决
 
@@ -64,3 +64,15 @@
    - 选中对应项目/工程
    - Customize Spring Boot
    - 选择配置文件
+
+# 安装新版本时无法打开
+
+![image-20230310151445102](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303101514495.png)
+
+![image-20230310151513668](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303101515716.png)
+
++ 删除 C:\Users\qls\AppData 路径下以上两个文件夹下的JetBrains文件
+
+# IDEA破解
+
+https://www.exception.site/essay/idea-reset-eval

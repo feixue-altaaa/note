@@ -28,13 +28,13 @@
 
 > **MyBatis 框架**
 >
-> **MyBatis** **是一个优秀的基于** **java** **的持久层框架，内部封装了** **jdbc**，开发者只需要关注 **sql** **语句**本身，而不需要处理加载驱动、创建连接、创建 statement、关闭连接，资源等繁杂的过程。
+> **MyBatis** **是一个优秀的基于** **java** **的持久层框架，内部封装了** **jdbc**，开发者只需要关注 **sql** **语句**本身，而不需要处理加载驱动、创建连接、创建 statement、关闭连接，资源等繁杂的过程
 >
-> MyBatis 通过 xml 或注解两种方式将要执行的各种 sql 语句配置起来，并通过 java 对象和 sql 的动态参数进行映射生成最终执行的 sql 语句，最后由 mybatis 框架执行 sql 并将结果映射为 java 对象并返回。
+> MyBatis 通过 xml 或注解两种方式将要执行的各种 sql 语句配置起来，并通过 java 对象和 sql 的动态参数进行映射生成最终执行的 sql 语句，最后由 mybatis 框架执行 sql 并将结果映射为 java 对象并返回
 
 > **Spring 框架**
 >
-> Spring 框架为了解决软件开发的复杂性而创建的。Spring 使用的是基本的 JavaBean 来完成以前非常复杂的企业级开发。Spring 解决了业务对象，功能模块之间的耦合，不仅在 javase,web 中使用， 大部分 Java 应用都可以从 Spring 中受益。
+> Spring 框架为了解决软件开发的复杂性而创建的。Spring 使用的是基本的 JavaBean 来完成以前非常复杂的企业级开发。Spring 解决了业务对象，功能模块之间的耦合，不仅在 javase,web 中使用，大部分 Java 应用都可以从 Spring 中受益
 >
 > Spring 是一个轻量级控制反转(IoC)和面向切面(AOP)的容器
 
@@ -51,8 +51,8 @@
 
 ### 框架解决的问题
 
-- 框架要解决的最重要的一个问题是技术整合，在 J2EE 的 框架中，有着各种各样的技术，不同的应用，系统使用不同的技术解决问题。需要从 J2EE 中选择不同的技术，而技术自身的复杂性，有导致更大的风险。企业在开发软件项目时，主要目的是解决业务问题。 即要求企业负责技术本身，又要求解决业务问题。这是大多数企业不能完成的。框架把相关的技术融合在一起，企业开发可以集中在业务领域方面。
--  另一个方面可以提供开发的效率
+- 框架要解决的最重要的一个问题是**技术整合**，在 J2EE 的框架中，有着各种各样的技术，不同的应用，系统使用不同的技术解决问题。需要从 J2EE 中选择不同的技术，而技术自身的复杂性，有导致更大的风险。企业在开发软件项目时，主要目的是解决业务问题。 即要求企业负责技术本身，又要求解决业务问题。这是大多数企业不能完成的。框架把相关的技术融合在一起，企业开发可以集中在业务领域方面
+-  另一个方面可以**提高开发的效率**
 
 ## JDBC编程
 
@@ -105,14 +105,14 @@ public void findStudent() {
 - 代码比较多，开发效率低
 - 需要关注 Connection ,Statement, ResultSet 对象创建和销毁
 - 对 ResultSet 查询的结果，需要自己封装为 List
-- 重复的代码比较多些
-- 业务代码和数据库的操作混在一起
+- **重复的代码比较多些**
+- **业务代码和数据库的操作混在一起**
 
 ## MyBatis框架概述
 
 > MyBatis 框架：
 >
-> MyBatis 本是 apache 的一个开源项目 iBatis, 2010 年这个项目由 apache software foundation 迁移到了 google code，并且改名为 MyBatis 。2013 年 11 月迁移到 Github。
+> MyBatis 本是 apache 的一个开源项目 iBatis, 2010 年这个项目由 apache software foundation 迁移到了 google code，并且改名为 MyBatis 。2013 年 11 月迁移到 Github
 >
 > iBATIS 一词来源于“internet”和“abatis”的组合，是一个基于 Java 的持久层框架。iBATIS 提供的持久层框架包括 SQL Maps 和 Data Access Objects（DAOs）
 
@@ -163,7 +163,7 @@ insert into student(name,email,age) values('赵六','zhaoliun@qq.com',24);
 select * from student;
 ```
 
-### 创建 工程，添加依赖
+### 创建工程，添加依赖
 
 ```xml
 <dependencies>
@@ -272,9 +272,9 @@ public class Student {
 
 ### 创建测试类
 
-- 使用Junit单元测试完成各种功能测试.
-- 使用@Before注解来进行所有测试前的SqlSession的创建工作.
-- 使用@After注解来进行所有测试方法执行后的关闭SqlSession的工作.
+- 使用Junit单元测试完成各种功能测试
+- 使用@Before注解来进行所有测试前的SqlSession的创建工作
+- 使用@After注解来进行所有测试方法执行后的关闭SqlSession的工作
 - 使用@Test注解来验证每一个功能的实现
 
 ```java
@@ -420,6 +420,94 @@ public class MyTest {
 <package name="com.bjpowernode.mapper"/>
 ```
 
+# 常用注解
+
++ 这些常用注解分为三大类：SQL语句映射，结果集映射和关系映射
+
+## SQL语句映射
+
++ **增删改查四个注解**
+
+```java
+@Mapper
+public interface UserMapper {
+    @Select("SELECT * FROM user WHERE id = #{id}")
+    User getById(@Param("id") Long id);
+
+    @Insert("INSERT INTO user(name, age) VALUES(#{name}, #{age})")
+    void insert(User user);
+
+    @Update("UPDATE user SET name=#{name}, age=#{age} WHERE id=#{id}")
+    void update(User user);
+
+    @Delete("DELETE FROM user WHERE id=#{id}")
+    void deleteById(@Param("id") Long id);
+}
+```
+
++ @SelectKey注解：插入后，获取id的值
++ 以mysql为例，mysql在插入一条数据后，如何能获得到这个自增id的值呢？使用select last_insert_id() 可以取到最后生成的主键
+
+```java
+@Insert("insert into user(id,name) values(#{id},#{name})")
+@Options(useGeneratedKeys = true, keyColumn = "id", keyProperty = "id")
+@SelectKey(statement = "select last_insert_id()" ,keyProperty = "id",keyColumn = "id",resultType = int.class,before = false) 
+public int insert(User user);
+```
+
+## 结果集映射
+
+- @Result，@Results，@ResultMap是结果集映射的三大注解
+- 首先说明一下@Results各个属性的含义，id为当前结果集声明唯一标识，value值为结果集映射关系，@Result代表一个字段的映射关系，column指定数据库字段的名称，property指定实体类属性的名称，jdbcType数据库字段类型，@Result里的id值为true表明主键，默认false；使用@ResultMap来引用映射结果集，其中value可省略
+- 声明结果集映射关系代码
+
+```java
+@Select({"select id, name, class_id from student"})
+@Results(id="studentMap", value={
+    @Result(column="id", property="id", jdbcType=JdbcType.INTEGER, id=true),
+    @Result(column="name", property="name", jdbcType=JdbcType.VARCHAR),
+    @Result(column="class_id ", property="classId", jdbcType=JdbcType.INTEGER)
+})
+List<Student> selectAll();
+```
+
++ 引用结果集代码
+
+```java
+@Select({"select id, name, class_id from student where id = #{id}"})
+@ResultMap(value="studentMap")
+Student selectById(integer id);
+```
+
++ 这样就不用每次需要声明结果集映射的时候都复制冗余代码，简化开发，提高了代码的复用性
+
+## 关系映射
+
+### @one注解：用于一对一关系映射
+
+```java
+@Select("select * from student")  
+@Results({  
+    @Result(id=true,property="id",column="id"),  
+    @Result(property="name",column="name"),  
+    @Result(property="age",column="age"),  
+    @Result(property="address",column="address_id",one=@One(select="cn.mybatis.mydemo.mappers.AddressMapper.getAddress"))  
+})  
+public List<Student> getAllStudents();  
+```
+
+### @many注解：用于一对多关系映射
+
+```java
+@Select("select * from t_class where id=#{id}")  
+@Results({  
+    @Result(id=true,column="id",property="id"),  
+    @Result(column="class_name",property="className"),  
+    @Result(property="students", column="id", many=@Many(select="cn.mybatis.mydemo.mappers.StudentMapper.getStudentsByClassId"))  
+    })  
+public Class getClass(int id);
+```
+
 # 动态代理
 
 ## 动态代理开发规范
@@ -497,7 +585,7 @@ public class MyTest {
 
 + 动态 SQL 是 MyBatis 的强大特性之一。如果你使用过 JDBC 或其它类似的框架，你应该能理解根据不同条件拼接 SQL 语句有多痛苦，例如拼接时要确保不能忘记添加必要的空格，还要注意去掉列表最后一个列名的逗号。利用动态 SQL，可以彻底摆脱这种痛苦。使用动态 SQL 并非一件易事，但借助可用于任何 SQL 映射语句中的强大的动态 SQL 语言，MyBatis 显著地提升了这一特性的易用性
 
-## <sql>标签
+##  <sql>标签
 
 + 当多种类型的查询语句的查询字段或者查询条件相同时，可以将其定义为常量，方便调用
 
@@ -614,7 +702,7 @@ and address like concat('%',#{address},'%')
 
 ## <set>标签
 
-+ 使用set标签可以将动态的配置 SET 关键字，并剔除追加到条件末尾的任何不相关的逗号。使用 if+set 标签修改后，在进行表单更新的操作中，哪个字段中有值才去更新，如果某项为 null 则不进行更新，而是保持数据库原值。**切记：至少更新一列**
++ 使用set标签可以动态的配置 SET 关键字，并剔除追加到条件末尾的任何不相关的逗号。使用 if+set 标签修改后，在进行表单更新的操作中，哪个字段中有值才去更新，如果某项为 null 则不进行更新，而是保持数据库原值。**切记：至少更新一列**
 
 ```xml
 <update id="updateBySet" parameterType="users">
@@ -804,7 +892,7 @@ List<Users> getByColunm(@Param("columnName") String columnName,
 
 ## 入参是map
 
-- 入参是map,是因为当传递的数据有多个,不适合使用指定下标或指定名称的方式来进行传参,又加上参数不一定与对象的成员变量一致,考虑使用map集合来进行传递.map使用的是键值对的方式.当在sql语句中使用的时候#{键名},${键名},用的是键的名称.
+- 入参是map,是因为当传递的数据有多个,不适合使用指定下标或指定名称的方式来进行传参,又加上参数不一定与对象的成员变量一致,考虑使用map集合来进行传递.map使用的是键值对的方式.当在sql语句中使用的时候#{键名},${键名},用的是键的名称
 - UsersMapper.java接口中
 
 ```java
@@ -840,7 +928,7 @@ public void testGetByMap()throws Exception{
 
 ## 返回值是map
 
-+ 返回值是map的适用场景,如果的数据不能使用对象来进行封装,可能查询的数据来自多张表中的某些列,这种情况下,使用map,但是map的返回方式破坏了对象的封装,返回来的数据是一个一个单独的数据, 之间不相关.**map**使用表中的列名或别名做为键名进行返回数据
++ 返回值是map的适用场景，如果数据不能使用对象来进行封装，可能查询的数据来自多张表中的某些列，这种情况下，使用map，但是map的返回方式破坏了对象的封装，返回来的数据是一个一个单独的数据,，之间不相关。**map**使用表中的列名或别名做为键名进行返回数据
 
 ### map封装返回值是一行
 
@@ -995,13 +1083,13 @@ public void testGetReturnMap(){
 
 ![image-20230228191546599](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302281915658.png)
 
-+ 在获得SqlSession的时候,如果openSession()是无参或者是false,则必须手工提交事务，如果openSession(true),则为自动提交事务，在执行完增删改后无须commit(),事务自动提交
++ 在获得SqlSession的时候，如果openSession()是无参或者是false，则必须手工提交事务，如果openSession(true)，则为自动提交事务，在执行完增删改后无须commit()，事务自动提交
 
 **session = factory.openSession(true);**
 
 # 缓存
 
-+ 将用户经常查询的数据放在缓存（内存）中，用户去查询数据就不用从磁盘上(关系型数据库数据文件)查询，从缓存中查询，从而**提高查询效率**，解决了高并发系统的性能问题。mybatis提供查询缓存，用于减轻数据库压力，提高数据库性能。
++ 将用户经常查询的数据放在缓存（内存）中，用户去查询数据就不用从磁盘上(关系型数据库数据文件)查询，从缓存中查询，从而**提高查询效率**，解决了高并发系统的性能问题。mybatis提供查询缓存，用于减轻数据库压力，提高数据库性能
 
 ## 缓存执行机制
 
@@ -1083,6 +1171,23 @@ public void testCacheOneCommit() {
 + 测试代码
 
 ![image-20230228200312142](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302282003220.png)
+
+> MyBatis是一种流行的Java持久化框架，它支持一级缓存和二级缓存来提高性能，下面是它们的异同点：
+>
+> 一级缓存：
+>
+> - 一级缓存是在SqlSession级别的缓存，也就是说只在一个SqlSession中有效；
+> - 当执行一条SQL语句时，MyBatis会将查询结果缓存在SqlSession的缓存中，如果再次执行相同的SQL语句，MyBatis会先从缓存中获取数据，而不是再次发送SQL语句；
+> - 一级缓存默认是开启的，可以通过在Mapper中配置`<select>`标签的`flushCache`属性来控制是否清空缓存。
+>
+> 二级缓存：
+>
+> - 二级缓存是在Mapper级别的缓存，也就是说多个SqlSession共享同一个缓存；
+> - 当执行一条SQL语句时，MyBatis会将查询结果缓存在缓存中，如果再次执行相同的SQL语句，MyBatis会先从缓存中获取数据，而不是再次发送SQL语句；
+> - 二级缓存需要在Mapper.xml文件中进行配置，并且需要启用才能使用；
+> - 二级缓存默认是关闭的，可以通过在Mapper.xml文件中配置`<cache>`标签来启用二级缓存，并配置缓存的策略、失效时间等参数。
+>
+> 总的来说，一级缓存和二级缓存都是用来提高查询性能的，但是它们的作用范围和使用方式有所不同。一级缓存是SqlSession级别的缓存，非常适合于频繁查询的场景，而二级缓存是Mapper级别的缓存，适合于多个SqlSession之间共享缓存的场景。在实际开发中，可以根据具体需求来选择使用哪种缓存
 
 # 什么是ORM
 

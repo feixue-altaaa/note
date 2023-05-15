@@ -1,10 +1,10 @@
 # 缓存穿透
 
-## 问题描述
+## 定义
 
 + key对应的数据在数据源并不存在，每次针对此key的请求从缓存获取不到，请求都会压到数据源，从而可能压垮数据源。比如用一个不存在的用户id获取用户信息，不论缓存还是数据库都没有，若黑客利用此漏洞进行攻击可能压垮数据库
 
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260918432-38891ccb-385b-4609-8973-854eba4cb565.png)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303141547996.png)
 
 ## 解决方案
 
@@ -24,7 +24,7 @@
 
 + 布隆过滤器可以用于检索一个元素是否在一个集合中。它的优点是空间效率和查询时间都远远超过一般的算法，缺点是有一定的误识别率和删除困难
 
-+ 将所有可能存在的数据哈希到一个足够大的bitmaps中，一个一定不存在的数据会被 这个bitmaps拦截掉，从而避免了对底层存储系统的查询压力
++ 将所有可能存在的数据哈希到一个足够大的bitmaps中，一个一定不存在的数据会被这个bitmaps拦截掉，从而避免了对底层存储系统的查询压力
 
 ### **进行实时监控**
 
@@ -32,11 +32,11 @@
 
 # 缓存击穿
 
-## 问题描述
+## 定义
 
 + key对应的数据存在，但在redis中过期，此时若有大量并发请求过来，这些请求发现缓存过期一般都会从后端DB加载数据并回设到缓存，这个时候大并发的请求可能会瞬间把后端DB压垮
 
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260919032-7cef6b61-5efb-4510-b8d1-91bdac80cbc5.png)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303141547861.png)
 
 ## 解决方案
 
@@ -53,21 +53,21 @@
 - 当操作返回成功时，再进行load db的操作，并回设缓存，最后删除mutex key
 - 当操作返回失败，证明有线程在load db，当前线程睡眠一段时间再重试整个get缓存的方法
 
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260919446-16db5a1d-1302-4165-af3b-fc33b2b13026.png)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303141547609.png)
 
 # 缓存雪崩
 
-## 问题描述
+## 定义
 
 - key对应的数据存在，但在redis中过期，此时若有大量并发请求过来，这些请求发现缓存过期一般都会从后端DB加载数据并回设到缓存，这个时候大并发的请求可能会瞬间把后端DB压垮
 - 缓存雪崩与缓存击穿的区别在于这里针对很多key缓存，前者则是某一个key
 - 正常访问
 
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260920030-83b7b1ea-2553-4ab1-b5b1-f552c66feb21.png)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303141547473.png)
 
 + 缓存失效瞬间
 
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260920474-6fadc766-2e81-4422-873d-c55f3ba7fe3c.png)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303141547557.png)
 
 ## 解决方案
 
@@ -75,217 +75,14 @@
 
 **构建多级缓存架构：**nginx缓存 + redis缓存 +其他缓存（ehcache等）
 
-**使用锁或队列：**
+**使用锁或队列**
 
-用加锁或者队列的方式保证来保证不会有大量的线程对数据库一次性进行读写，从而避免失效时大量的并发请求落到底层存储系统上。不适用高并发情况
++ 用加锁或者队列的方式保证来保证不会有大量的线程对数据库一次性进行读写，从而避免失效时大量的并发请求落到底层存储系统上。不适用高并发情况
 
-**设置过期标志更新缓存：**
+**设置过期标志更新缓存**
 
-记录缓存数据是否过期（设置提前量），如果过期会触发通知另外的线程在后台去更新实际key的缓存
++ 记录缓存数据是否过期（设置提前量），如果过期会触发通知另外的线程在后台去更新实际key的缓存
 
-**将缓存失效时间分散开：**
+**将缓存失效时间分散开**
 
-比如我们可以在原有的失效时间基础上增加一个随机值，比如1-5分钟随机，这样每一个缓存的过期时间的重复率就会降低，就很难引发集体失效的事件
-
-# 分布式锁
-
-## 问题描述
-
-+ 随着业务发展需要，原单体单机部署的系统被演化成分布式集群系统后，由于分布式系统多线程、多进程并且分布在不同机器上，这将使原单机部署情况下的并发控制锁策略失效，单纯的Java API并不能提供分布式锁的能力。为了解决这个问题就需要一种跨JVM的互斥机制来控制共享资源的访问，这就是分布式锁要解决的问题
-
-### 分布式锁主流的实现方案
-
-- 基于数据库实现分布式锁
-- 基于缓存（Redis等）
-- 基于Zookeeper
-
-### 每一种分布式锁解决方案都有各自的优缺点
-
-- 性能：redis最高
-- 可靠性：zookeeper最高
-
-## 解决方案：使用redis实现分布式锁
-
-```bash
-setnx key value
-#EX second ：设置键的过期时间为 second 秒。 SET key value EX second 效果等同于 SETEX key second value 
-#PX millisecond ：设置键的过期时间为 millisecond 毫秒。 SET key value PX millisecond 效果等同于 PSETEX key millisecond value 
-#NX ：只在键不存在时，才对键进行设置操作。 SET key value NX 效果等同于 SETNX key value 
-#XX ：只在键已经存在时，才对键进行设置操作
-```
-
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260920947-ea12422c-e91b-4c5f-89de-1657ce0b770c.png)
-
-## 编写代码
-
-```java
-@GetMapping("testLock")
-public void testLock(){
-    //1获取锁，setne
-    Boolean lock = redisTemplate.opsForValue().setIfAbsent("lock", "111");
-    //2获取锁成功、查询num的值
-    if(lock){
-        Object value = redisTemplate.opsForValue().get("num");
-        //2.1判断num为空return
-        if(StringUtils.isEmpty(value)){
-            return;
-        }
-        //2.2有值就转成成int
-        int num = Integer.parseInt(value+"");
-        //2.3把redis的num加1
-        redisTemplate.opsForValue().set("num", ++num);
-        //2.4释放锁，del
-        redisTemplate.delete("lock");
-
-    }else{
-        //3获取锁失败、每隔0.1秒再获取
-        try {
-            Thread.sleep(100);
-            testLock();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-}
-```
-
-## 优化之设置锁的过期时间
-
-+ 设置过期时间有两种方式
-  + 首先想到通过expire设置过期时间（缺乏原子性：如果在setnx和expire之间出现异常，锁也无法释放）
-  + 在set时指定过期时间（推荐）
-
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260922465-53cd2f2e-efc4-4906-94ec-22eddd6e8907.png)
-
-+ 设置过期时间
-
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260922736-b4d51e92-251c-4a1c-a990-93fcef83b711.png)
-
-**问题**：可能会释放其他服务器的锁
-
-**场景**：如果业务逻辑的执行时间是7s。执行流程如下
-
-- index1业务逻辑没执行完，3秒后锁被自动释放
-- index2获取到锁，执行业务逻辑，3秒后锁被自动释放
-- index3获取到锁，执行业务逻辑
-- index1业务逻辑执行完成，开始调用del释放锁，这时释放的是index3的锁，导致index3的业务只执行1s就被别人释放
-
-![1673938253945](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1673938253945.png)
-
-**解决**：setnx获取锁时，设置一个指定的唯一值（例如：uuid）；释放前获取这个值，判断是否自己的锁
-
-## 优化之UUID防误删
-
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260923057-31887b82-762e-4c90-8716-02db41f1e1c1.png)
-
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260923521-211ae62d-bc18-44e8-a18f-8fe3e3e77474.png)
-
-**问题：删除操作缺乏原子性**
-
-![1673938462478](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1673938462478.png)
-
-## 优化之LUA脚本保证删除的原子性
-
-**Lua 脚本详解**
-
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260924656-8b043038-afac-4d25-a7a5-2a524c37ad99.png)
-
-**项目中正确使用**
-
-| 定义key，key应该是为每个sku定义的，也就是每个sku有一把锁。String locKey =**"lock:"**+skuId; *// 锁住的是每个商品的数据*Boolean lock = **redisTemplate**.opsForValue().setIfAbsent(locKey, uuid,3,TimeUnit.***SECONDS***); |
-| ------------------------------------------------------------ |
-| ![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659260925171-71f31465-72df-448f-bf66-0486a1195084.png) |
-
-```java
-@GetMapping("testLockLua")
-public void testLockLua() {
-    //1 声明一个uuid ,将做为一个value 放入我们的key所对应的值中
-    String uuid = UUID.randomUUID().toString();
-    //2 定义一个锁：lua 脚本可以使用同一把锁，来实现删除！
-    String skuId = "25"; // 访问skuId 为25号的商品 100008348542
-    String locKey = "lock:" + skuId; // 锁住的是每个商品的数据
-
-    // 3 获取锁
-    Boolean lock = redisTemplate.opsForValue().setIfAbsent(locKey, uuid, 3, TimeUnit.SECONDS);
-
-    // 第一种： lock 与过期时间中间不写任何的代码。
-    // redisTemplate.expire("lock",10, TimeUnit.SECONDS);//设置过期时间
-    // 如果true
-    if (lock) {
-        // 执行的业务逻辑开始
-        // 获取缓存中的num 数据
-        Object value = redisTemplate.opsForValue().get("num");
-        // 如果是空直接返回
-        if (StringUtils.isEmpty(value)) {
-            return;
-        }
-        // 不是空 如果说在这出现了异常！ 那么delete 就删除失败！ 也就是说锁永远存在！
-        int num = Integer.parseInt(value + "");
-        // 使num 每次+1 放入缓存
-        redisTemplate.opsForValue().set("num", String.valueOf(++num));
-        /*使用lua脚本来锁*/
-        // 定义lua 脚本
-        String script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
-        // 使用redis执行lua执行
-        DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>();
-        redisScript.setScriptText(script);
-        // 设置一下返回值类型 为Long
-        // 因为删除判断的时候，返回的0,给其封装为数据类型。如果不封装那么默认返回String 类型，
-        // 那么返回字符串与0 会有发生错误。
-        redisScript.setResultType(Long.class);
-        // 第一个要是script 脚本 ，第二个需要判断的key，第三个就是key所对应的值。
-        redisTemplate.execute(redisScript, Arrays.asList(locKey), uuid);
-    } else {
-        // 其他线程等待
-        try {
-            // 睡眠
-            Thread.sleep(1000);
-            // 睡醒了之后，调用方法。
-            testLockLua();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-}
-```
-
-# 总结
-
-**加锁**
-
-```java
-// 1. 从redis中获取锁,set k1 v1 px 20000 nx
-String uuid = UUID.randomUUID().toString();
-Boolean lock = this.redisTemplate.opsForValue()
-      .setIfAbsent("lock", uuid, 2, TimeUnit.SECONDS);
-```
-
-**使用lua释放锁**
-
-```java
-// 2. 释放锁 del
-String script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
-// 设置lua脚本返回的数据类型
-DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>();
-// 设置lua脚本返回类型为Long
-redisScript.setResultType(Long.class);
-redisScript.setScriptText(script);
-redisTemplate.execute(redisScript, Arrays.asList("lock"),uuid);
-```
-
-**重试**
-
-```java
-Thread.sleep(500);
-testLock();
-```
-
-为了确保分布式锁可用，我们至少要确保锁的实现同时**满足以下四个条件**
-
-- 互斥性。在任意时刻，只有一个客户端能持有锁
-
-- 不会发生死锁。即使有一个客户端在持有锁的期间崩溃而没有主动解锁，也能保证后续其他客户端能加锁
-
-- 解铃还须系铃人。加锁和解锁必须是同一个客户端，客户端自己不能把别人加的锁给解了
-
-- 加锁和解锁必须具有原子性
++ 比如我们可以在原有的失效时间基础上增加一个随机值，比如1-5分钟随机，这样每一个缓存的过期时间的重复率就会降低，就很难引发集体失效的事件

@@ -6,18 +6,16 @@
 
 ## AOF持久化流程
 
-- （1）客户端的请求写命令会被append追加到AOF缓冲区内；
+- 客户端的请求写命令会被append追加到AOF缓冲区内；
 
-- （2）AOF缓冲区根据AOF持久化策略[always,everysec,no]将操作sync同步到磁盘的AOF文件中；
+- AOF缓冲区根据AOF持久化策略[always,everysec,no]将操作sync同步到磁盘的AOF文件中；
 
-- （3）AOF文件大小超过重写策略或手动重写时，会对AOF文件rewrite重写，压缩AOF文件容量；
+- AOF文件大小超过重写策略或手动重写时，会对AOF文件rewrite重写，压缩AOF文件容量；
 
-- （4）Redis服务重启时，会重新load加载AOF文件中的写操作达到数据恢复的目的；
-
-
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659183450113-2320b173-b28a-4061-9302-b7789c302334.png)
+- Redis服务重启时，会重新load加载AOF文件中的写操作达到数据恢复的目的；
 
 
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303132005415.png)
 
 ## AOF默认不开启
 
@@ -38,7 +36,7 @@
 
 ## AOF启动/修复/恢复
 
-- AOF的备份机制和性能虽然和RDB不同, 但是备份和恢复的操作同RDB一样，都是拷贝备份文件，需要恢复时再拷贝到Redis工作目录下，启动系统即加载。
+- AOF的备份机制和性能虽然和RDB不同, 但是备份和恢复的操作同RDB一样，都是拷贝备份文件，需要恢复时再拷贝到Redis工作目录下，启动系统即加载
 - **正常恢复**
 
   - 修改默认的appendonly no，改为yes
@@ -73,15 +71,15 @@
 
 ### 定义
 
-+ AOF采用文件追加方式，文件会越来越大为避免出现此种情况，新增了重写机制, 当AOF文件的大小超过所设定的阈值时，Redis就会启动AOF文件的内容压缩， 只保留可以恢复数据的最小指令集.可以使用命令bgrewriteaof
++ AOF采用文件追加方式，文件会越来越大为避免出现此种情况，新增了重写机制, 当AOF文件的大小超过所设定的阈值时，Redis就会启动AOF文件的内容压缩， 只保留可以恢复数据的最小指令集。可以使用命令bgrewriteaof
 
 ### 重写原理，如何实现重写
 
 + AOF文件持续增长而过大时，会fork出一条新进程来将文件重写(也是先写临时文件最后再rename)，redis4.0版本后的重写，是指就是把rdb 的快照，以二级制的形式附在新的aof头部，作为已有的历史数据，替换掉原来的流水账操作
 
-#### **no-appendfsync-on-rewrite**
+#### **no-appendofsync-on-rewrite**
 
-+ 如果 no-appendfsync-on-rewrite=yes ,不写入aof文件只写入缓存，用户请求不会阻塞，但是在这段时间如果宕机会丢失这段时间的缓存数据。（降低数据安全性，提高性能）
++ 如果 no-appendofsync-on-rewrite=yes ,不写入aof文件只写入缓存，用户请求不会阻塞，但是在这段时间如果宕机会丢失这段时间的缓存数据。（降低数据安全性，提高性能）
 
 + 如果 no-appendfsync-on-rewrite=no,  还是会把数据往磁盘里刷，但是遇到重写操作，可能会发生阻塞。（数据安全，但是性能降低）
 
@@ -89,7 +87,7 @@
 
 + Redis会记录上次重写时的AOF大小，默认配置是当AOF文件大小是上次rewrite后大小的一倍且文件大于64M时触发
 
-+ 重写虽然可以节约大量磁盘空间，减少恢复时间。但是每次重写还是有一定的负担的，因此设定Redis要满足一定条件才会进行重写。
++ 重写虽然可以节约大量磁盘空间，减少恢复时间。但是每次重写还是有一定的负担的，因此设定Redis要满足一定条件才会进行重写
 
 #### 何时重写
 
@@ -102,7 +100,7 @@
 - 系统载入时或者上次重写完毕时，Redis会记录此时AOF大小，设为base_size,如果Redis的AOF当前大小>= base_size +base_size*100% (默认)且当前大小>=64mb(默认)的情况下，Redis会对AOF进行重写
 
 
-### 重写流程
+### 重写流程(**)
 
 - （1）bgrewriteaof触发重写，判断是否当前有bgsave或bgrewriteaof在运行，如果有，则等待该命令结束后再继续执行
 
@@ -115,7 +113,7 @@
 - （5）使用新的AOF文件覆盖旧的AOF文件，完成AOF重写
 
 
-![img](https://cdn.nlark.com/yuque/0/2022/png/29671373/1659183450609-277e99a6-f646-436a-a1fe-3246b70e7f9d.png)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303132035435.png)
 
 
 
@@ -123,7 +121,7 @@
 
 ## 优势
 
-![img](https://cdn.nlark.com/yuque/0/2022/jpeg/29671373/1659183451157-6ef0da47-015f-4a72-890c-c1ff8db532c7.jpeg)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303132035248.jpeg)
 
 - 备份机制更稳健，丢失数据概率更低
 - 可读的日志文本，通过操作AOF稳健，可以处理误操作
@@ -137,7 +135,7 @@
 
 # 总结
 
-![img](https://cdn.nlark.com/yuque/0/2022/jpeg/29671373/1659183451667-67e620a9-d6eb-4cf6-a275-cb349031b524.jpeg)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202303132035487.jpeg)
 
 ## 用哪个好
 
