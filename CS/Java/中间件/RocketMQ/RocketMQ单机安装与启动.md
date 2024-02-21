@@ -13,12 +13,12 @@
 - 修改runserver.sh
 - 使用vim命令打开bin/runserver.sh文件。现将这些值修改为如下
 
-![12](D:\课件\java教程\rocketmq\资料\12.jpg)
+![12](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211802838.jpg)
 
 - 修改runbroker.sh
 - 使用vim命令打开bin/runbroker.sh文件。现将这些值修改为如下
 
-![13](D:\课件\java教程\rocketmq\资料\13.jpg)
+![13](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211802874.jpg)
 
 ## 启动
 
@@ -29,7 +29,7 @@ nohup sh bin/mqnamesrv &
 tail -f ~/logs/rocketmqlogs/namesrv.log
 ```
 
-![14](D:\课件\java教程\rocketmq\资料\14.jpg)
+![14](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211802631.jpg)
 
 ### 启动broker
 
@@ -38,7 +38,7 @@ nohup sh bin/mqbroker -n localhost:9876 &
 tail -f ~/logs/rocketmqlogs/broker.log
 ```
 
-![15](D:\课件\java教程\rocketmq\资料\15.jpg)
+![15](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211802136.jpg)
 
 ### 关闭Server
 

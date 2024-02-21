@@ -12,9 +12,9 @@
 + MQ可以将系统的超量请求暂存其中，以便系统后期可以慢慢进行处理，从而避免了请求的丢失或系统
   被压垮
 
-![1](D:\课件\java教程\rocketmq\资料\1.jpg)
+![1](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211800072.jpg)
 
-![2](D:\课件\java教程\rocketmq\资料\2.jpg)
+![2](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211800682.jpg)
 
 ### 实现
 
@@ -56,13 +56,13 @@ public class PraiseListener implements RocketMQListener<PraiseRecordVO>, RocketM
 
 + 比如我们有一个购票系统，需求是用户在购买完之后能接收到购买完成的短信
 
-![img](https://pic1.zhimg.com/80/v2-6d99712a041fd767b75352d007df4560_1440w.webp)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211800278.webp)
 
 + 我们省略中间的网络通信时间消耗，假如购票系统处理需要 150ms ，短信系统处理需要 200ms ，那么整个处理流程的时间消耗就是 150ms + 200ms = 350ms。
 
 + 当然，乍看没什么问题。可是仔细一想你就感觉有点问题，我用户购票在购票系统的时候其实就已经完成了购买，而我现在通过同步调用非要让整个请求拉长时间，而短息系统这玩意又不是很有必要，它仅仅是一个辅助功能增强用户体验感而已。我现在整个调用流程就有点 **头重脚轻** 的感觉了，购票是一个不太耗时的流程，而我现在因为同步调用，非要等待发送短信这个比较耗时的操作才返回结果。那我如果再加一个发送邮件呢？
 
-![img](https://pic2.zhimg.com/80/v2-9253203fd4864296e21aa4c30dbac491_1440w.webp)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211800138.webp)
 
 + 这样整个系统的调用链又变长了，整个时间就变成了550ms
 
@@ -82,7 +82,7 @@ public class PraiseListener implements RocketMQListener<PraiseRecordVO>, RocketM
   而异步调用则会解决这些问题。所以两层之间若要实现由同步到异步的转化，一般性做法就是，在这两
   层间添加一个MQ层
 
-![3](D:\课件\java教程\rocketmq\资料\3.jpg)
+![3](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211759025.jpg)
 
 ### 使用举例
 
@@ -361,7 +361,7 @@ MQTT，Message Queuing Telemetry Transport（消息队列遥测传输），是IB
 
 
 
-![4](D:\课件\java教程\rocketmq\资料\4.jpg)
+![4](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211801093.jpg)
 
 - 2007年，阿里开始五彩石项目，Notify作为项目中交易核心消息流转系统，应运而生。Notify系统是
   RocketMQ的雏形
@@ -386,7 +386,7 @@ MQTT，Message Queuing Telemetry Transport（消息队列遥测传输），是IB
 
 >  **表示一类消息的集合，每个主题包含若干条消息，是RocketMQ进行消息订阅的基本单位，一个生产者可以同时发送多种Topic的消息；而一个消费者只对某种特定的Topic感兴趣，即只可以订阅和消费一种Topic的消息**
 
-![5](D:\课件\java教程\rocketmq\资料\5.jpg)
+![5](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211801184.jpg)
 
 ## 标签（Tag）
 > 为消息设置的标签，用于同一主题下区分不同类型的消息。来自同一业务单元的消息，可以根据不同业
@@ -403,13 +403,13 @@ MQTT，Message Queuing Telemetry Transport（消息队列遥测传输），是IB
 > 一个Topic的Queue中的消息只能被一个消费者组中的一个消费者消费。一个Queue中的消息不允许同
 > 一个消费者组中的多个消费者同时消费
 
-![6](D:\课件\java教程\rocketmq\资料\6.jpg)
+![6](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211801604.jpg)
 
 ## 分片（Sharding）
 
 + 分片不同于分区。在RocketMQ中，分片指的是存放相应Topic的Broker。每个分片中会创建出相应数量的分区，即Queue，每个Queue的大小都是相同的。
 
-![7](D:\课件\java教程\rocketmq\资料\7.jpg)
+![7](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211801784.jpg)
 
 ## 消息标识（MessageId/Key）
 
@@ -436,7 +436,7 @@ brokerIp + 物理分区的offset（Queue中的偏移量）
 
 # 系统架构
 
-![8](D:\课件\java教程\rocketmq\资料\8.jpg)
+![8](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211801282.jpg)
 
 **RocketMQ架构上主要分为四部分构成**
 
@@ -459,12 +459,12 @@ brokerIp + 物理分区的offset（Queue中的偏移量）
 
 + RocketMQ中的消息消费者都是以消费者组（Consumer Group）的形式出现的。消费者组是同一类消费者的集合，这类Consumer消费的是同一个Topic类型的消息。消费者组使得在消息消费方面，实现**负载均衡**（将一个Topic中的不同的Queue平均分配给同一个Consumer Group的不同的Consumer，注意，并不是将消息负载均衡）和**容错**（一个Consmer挂了，该Consumer Group中的其它Consumer可以接着消费原Consumer消费的Queue）的目标变得非常容易
 
-![9](D:\课件\java教程\rocketmq\资料\9.jpg)
+![9](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211801687.jpg)
 
 + 消费者组中Consumer的数量应该小于等于订阅Topic的Queue数量。如果超出Queue数量，则多出的
   Consumer将不能消费消息
 
-![10](D:\课件\java教程\rocketmq\资料\10.jpg)
+![10](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211801739.jpg)
 
 + 不过，一个Topic类型的消息可以被多个消费者组同时消费
 
@@ -537,7 +537,7 @@ brokerIp + 物理分区的offset（Queue中的偏移量）
 
 + 下图为Broker Server的功能模块示意图
 
-![11](D:\课件\java教程\rocketmq\资料\11.jpg)
+![11](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211801507.jpg)
 
 - **Remoting Module**：整个Broker的实体，负责处理来自clients端的请求。而这个Broker实体则由以下模块构成
 - **Client Manager**：客户端管理器。负责接收、解析客户端(Producer/Consumer)请求，管理客户端。例如，维护Consumer的Topic订阅信息
@@ -795,7 +795,7 @@ Kafka 实际上有个 offset 的概念，就是每个消息写进去，都有一
 
 有这么个场景。数据 1/2/3 依次进入 kafka，kafka 会给这三条数据每条分配一个 offset，代表这条数据的序号，我们就假设分配的 offset 依次是 152/153/154。消费者从 kafka 去消费的时候，也是按照这个顺序去消费。假如当消费者消费了 offset=153 的这条数据，刚准备去提交 offset 到 zookeeper，此时消费者进程被重启了。那么此时消费过的数据 1/2 的 offset 并没有提交，kafka 也就不知道你已经消费了 offset=153 这条数据。那么重启之后，消费者会找 kafka 说，嘿，哥儿们，你给我接着把上次我消费到的那个地方后面的数据继续给我传递过来。由于之前的 offset 没有提交成功，那么数据 1/2 会再次传过来，如果此时消费者没有去重的话，那么就会导致重复消费
 
-![img](https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy8yMjQyMTgyOS04YzJjZDA0NGYzOTIzMDE1LnBuZw?x-oss-process=image/format,png)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211802714.png)
 
 如果消费者干的事儿是拿一条数据就往数据库里写一条，会导致说，你可能就把数据 1/2 在数据库里插入了 2 次，那么数据就错啦
 

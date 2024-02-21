@@ -4,7 +4,7 @@
 
 # RocketMQ的核心工作机制
 
-![1674133054337](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674133054337.png)
+![1674133054337](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803409.png)
 
 - 由上图可以看到RocketMQ存储的文件主要包括**Commitlog文件**、**ConsumeQueue文件**、**Index文件**
 
@@ -18,7 +18,7 @@
 
 - 在RocketMQ中顺序写入到Commitlog文件后，ConsumeQueue与Index文件都是异步构建的，其数据流向图如下
 
-![1674133236559](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674133236559.png)
+![1674133236559](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803370.png)
 
 ## Commitlog文件
 
@@ -37,7 +37,7 @@
 - RocketMQ与关系型数据会为每一条数据引入一个ID主键，在基于磁盘的读取机制中，也会为一条Message引入一个唯一标志：**消息物理偏移量**，即消息存储在文件的起始位置
 - 正是有了物理偏移量的概念，这也与上面提到的Commitlog的文件名命名相互呼应，这样做的好处是给出任意一个消息的物理偏移量，例如消息偏移量为 12345678，可以通过二分法进行查找，快速定位这个文件在第一个文件中，然后用消息的物理偏移量减去该文件的名称所得到的差值，就是在该文件中的绝对地址
 
-![1674133537310](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674133537310.png)
+![1674133537310](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803391.png)
 
 ## ConsumeQueue的读取模式
 
@@ -52,14 +52,14 @@
 
 - 首先，消息消费者根据topic、消息消费进度（ConsumeQueue逻辑偏移量），即第几个ConsumeQueue条目，这样的消费进度去访问消息的方法为使用逻辑偏移量logicOffset * 20即可找到该条目的起始偏移量（ConsumeQueue文件中的偏移量），然后读取该偏移量后20个字节即得到一个条目，**无须遍历ConsumeQueue文件**
 
-![1674133660257](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674133660257.png)
+![1674133660257](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803700.png)
 
 > - 第N个消ConsumeQueue的元素数据的索引开始：（N-1）* 20+1
 > - 第N个消ConsumeQueue的元素数据的索引结束：（N）* 20
 
 - ConsumeQueue文件夹如下：topic/queue/file三层组织结构，地址：$HOME/store/ConsumeQueue/{topic}/{queueId}/{fileName}。单个ConsumerQueue文件由30W个条目组成，可以像数组一样随机访问每一个条目，每个ConsumeQueue文件大小约5.72M
 
-![1674133798688](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674133798688.png)
+![1674133798688](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803032.png)
 
 ## 存储结构分析总结
 
@@ -91,7 +91,7 @@
 
 - IndexFile的文件存储结构如下图所示
 
-![1674134078438](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674134078438.png)
+![1674134078438](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803695.png)
 
 > 其原理和读取方式与ConsumerQueue较为相似，至此不过多赘述。对于IndexFile文件和ConsumerQueue文件都是，Broker端的后台服务线程—ReputMessageService不停地分发请求并异步构建ConsumeQueue（逻辑消费队列）和IndexFile（索引文件）数据
 
@@ -120,11 +120,11 @@
 
 - RocketMQ为了降低PageCache的使用压力引入了transientStorePoolEnable机制，即内存级别的读写分离机制。默认情况下RocketMQ将消息写入PageCache，消息消费时从PageCache中读取，这样在高并发时PageCache的压力会比较大，容易出现瞬时broker busy
 
-![1674134283222](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674134283222.png)
+![1674134283222](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803827.png)
 
 - RocketMQ还引入了transientStorePoolEnable=true，将消息先写入堆外内存并立即返回，然后异步将堆外内存中的数据提交到pagecache，再异步刷盘到磁盘中。其工作机制如下图所示
 
-![1674134303685](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674134303685.png)
+![1674134303685](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803407.png)
 
 > **消息在消费读取时不会尝试从堆外内存中读，而是从PageCache中读取，这样就形成了内存级别的读写分离，即消息写入时主要面对堆外内存，而读消息时主要面对pagecache**。
 
@@ -143,7 +143,7 @@
 
 - 同步刷盘的优点是能保证消息不丢失，即向客户端返回成功就代表这条消息已被持久化到磁盘，即消息非常可靠，但这是以牺牲写入响应延迟性能为代价的，由于RocketMQ的消息是先写入pagecache，故消息丢失的可能性较小，如果能容忍一定几率的消息丢失，可以考虑使用异步刷盘。
 
-![1674134418997](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674134418997.png)
+![1674134418997](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803605.png)
 
 - 如上图所示，只有在消息真正持久化至磁盘后RocketMQ的Broker端才会真正返回给Producer端一个成功的ACK响应。同步刷盘对MQ消息可靠性来说是一种不错的保障，但是性能上会有较大影响，一般适用于金融业务应用该模式较多
 
@@ -151,11 +151,11 @@
 
 - 异步刷盘指的是broker将消息存储到pagecache后就立即返回成功，然后开启一个异步线程定时执行FileChannel的forece方法，将内存中的数据定时刷写到磁盘，默认间隔为500ms
 
-![1674134456279](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674134456279.png)
+![1674134456279](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803507.png)
 
 - 能够充分利用OS的PageCache的优势，只要消息写入PageCache即可将成功的ACK返回给Producer端。消息刷盘采用后台异步线程提交的方式进行，降低了读写延迟，提高了MQ的性能和吞吐量。
 
-![1674134473843](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674134473843.png)
+![1674134473843](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803031.png)
 
 > **GroupCommitService 从队列中拿出待刷盘请求request， 然后执行刷盘动作， 此时会将write指针与flush指针之间的所有数据刷写到磁盘中，即这里并不只是将request l对应的那一条消息刷写到磁盘**
 
@@ -199,7 +199,7 @@
 
 + RocketMQ中的消息存储在本地文件系统中，这些相关文件默认在当前用户主目录下的store目录中
 
-![1674108727072](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674108727072.png)
+![1674108727072](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804832.png)
 
 - abort：该文件在Broker启动后会自动创建，正常关闭Broker，该文件会自动消失。若在没有启动Broker的情况下，发现这个文件是存在的，则说明之前Broker的关闭是非正常关闭。
 - checkpoint：其中存储着commitlog、consumequeue、index文件的最后刷盘时间戳
@@ -224,7 +224,7 @@
 
 + **mappedFile**
 
-![1674110088861](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674110088861.png)
+![1674110088861](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804439.png)
 
 + mappedFile文件内容由一个个的消息单元构成。每个消息单元中包含消息总长度MsgLen、消息的物理位置physicalOffset、消息体内容Body、消息体长度BodyLength、消息主题Topic、Topic长度TopicLength、消息生产者BornHost、消息发送时间戳BornTimestamp、消息所在的队列QueueId、消息在Queue中存储的偏移量QueueOffset等近20余项消息相关属性。
 
@@ -252,11 +252,11 @@
 
 + 每个Broker中会包含一组indexFile，每个indexFile都是以一个时间戳命名的（这个indexFile被创建时的时间戳）。每个indexFile文件由三部分构成：indexHeader，slots槽位，indexes索引数据。每个indexFile文件中包含500w个slot槽。而每个slot槽又可能会挂载很多的index索引单元
 
-![1674189773703](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674189773703.png)
+![1674189773703](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804124.png)
 
 + indexHeader固定40个字节，其中存放着如下数据
 
-![1674189793562](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674189793562.png)
+![1674189793562](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804805.png)
 
 - beginTimestamp：该indexFile中第一条消息的存储时间
 - endTimestamp：该indexFile中最后一条消息存储时间
@@ -266,13 +266,13 @@
 - indexCount：该indexFile中包含的索引单元个数（统计出当前indexFile中所有slot槽下挂载的所有index索引单元的数量之和）
 - indexFile中最复杂的是Slots与Indexes间的关系。在实际存储时，Indexes是在Slots后面的，但为了便于理解，将它们的关系展示为如下形式
 
-![1674189896174](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674189896174.png)
+![1674189896174](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804280.png)
 
 + key的hash值 % 500w 的结果即为slot槽位，然后将该slot值修改为该index索引单元的indexNo，根据这个indexNo可以计算出该index单元在indexFile中的位置。不过，该取模结果的重复率是很高的，为了解决该问题，在每个index索引单元中增加了preIndexNo，用于指定该slot中当前index索引单元的前一个index索引单元。而slot中始终存放的是其下最新的index索引单元的indexNo，这样的话，只要找到了slot就可以找到其最新的index索引单元，而通过这个index索引单元就可以找到其之前的所有index索引单元。
 
 > indexNo是一个在indexFile中的流水号，从0开始依次递增。即在一个indexFile中所有indexNo是以此递增的。indexNo在index索引单元中是没有体现的，其是通过indexes中依次数出来的。index索引单元默写20个字节，其中存放着以下四个属
 
-![1674189935255](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674189935255.png)
+![1674189935255](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804673.png)
 
 - keyHash：消息中指定的业务key的hash值
 - phyOffset：当前key对应的消息在commitlog中的偏移量commitlog offset
@@ -311,7 +311,7 @@ $$
 
 + 具体查询流程如下
 
-![1674190223610](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674190223610.png)
+![1674190223610](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804089.png)
 
 # 消息的消费
 
@@ -336,13 +336,13 @@ $$
 
 ### 广播消费
 
-![1674191476889](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674191476889.png)
+![1674191476889](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804304.png)
 
 + 广播消费模式下，相同Consumer Group的每个Consumer实例都接收同一个Topic的全量消息。即每条消息都会被发送到Consumer Group中的每个Consumer
 
 ### 集群消费
 
-![1674191507205](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674191507205.png)
+![1674191507205](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804281.png)
 
 + 集群消费模式下，相同Consumer Group的每个Consumer实例平均分摊同一个Topic的消息。即每条消息只会被发送到Consumer Group中的某个Consumer
 
@@ -351,7 +351,7 @@ $$
 - 广播模式：消费进度保存在consumer端。因为广播模式下consumer group中每个consumer都会消费所有消息，但它们的消费进度是不同。所以consumer各自保存各自的消费进度
 - 集群模式：消费进度保存在broker中。consumer group中的所有consumer共同消费同一个Topic中的消息，同一条消息只会被消费一次。消费进度会参与到了消费的负载均衡中，故消费进度是需要共享的。下图是broker中存放的各个Topic的各个Queue的消费进
 
-![1674191555609](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674191555609.png)
+![1674191555609](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804515.png)
 
 ### Rebalance机制
 
@@ -361,7 +361,7 @@ $$
 >
 > Rebalance即再均衡，指的是，将⼀个Topic下的多个Queue在同⼀个Consumer Group中的多个Consumer间进行重新分配的过程
 
-![1674191600123](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674191600123.png)
+![1674191600123](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804744.png)
 
 + Rebalance机制的本意是为了提升消息的并行消费能力。例如，⼀个Topic下5个队列，在只有1个消费者的情况下，这个消费者将负责消费这5个队列的消息。如果此时我们增加⼀个消费者，那么就可以给其中⼀个消费者分配2个队列，给另⼀个分配3个队列，从而提升消息的并行消费能力
 
@@ -425,27 +425,27 @@ $$
 
 ##### 平均分配策略
 
-![1674192063624](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674192063624.png)
+![1674192063624](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211804085.png)
 
 - 该算法是要根据avg = QueueCount / ConsumerCount 的计算结果进行分配的。如果能够整除，则按顺序将avg个Queue逐个分配Consumer；如果不能整除，则将多余出的Queue按照Consumer顺序逐个分配
 - 该算法即，先计算好每个Consumer应该分得几个Queue，然后再依次将这些数量的Queue逐个分配个Consumer
 
 ##### 环形平均策略
 
-![1674192122702](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674192122702.png)
+![1674192122702](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805022.png)
 
 + 环形平均算法是指，根据消费者的顺序，依次在由queue队列组成的环形图中逐个分配。该算法不用事先计算每个Consumer需要分配几个Queue，直接一个一个分即可
 
 ##### 一致性hash策略
 
-![1674192158826](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674192158826.png)
+![1674192158826](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805422.png)
 
 - 该算法会将consumer的hash值作为Node节点存放到hash环上，然后将queue的hash值也放到hash环上，通过顺时针方向，距离queue最近的那个consumer就是该queue要分配的consumer
 - 该算法存在的问题：分配不均
 
 ##### 同机房策略
 
-![1674192189195](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674192189195.png)
+![1674192189195](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805272.png)
 
 + 该算法会根据queue的部署机房位置和consumer的位置，过滤出当前consumer相同机房的queue。然后按照平均分配策略或环形平均策略对同机房queue进行分配。如果没有同机房queue，则按照平均分配策略或环形平均策略对所有queue进行分配
 
@@ -456,7 +456,7 @@ $$
 - 一致性hash算法存在的意义
   - 其可以有效减少由于消费者组扩容或缩容所带来的大量的Rebalance
 
-![1674192265183](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674192265183.png)
+![1674192265183](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805152.png)
 
 + 一致性hash算法的应用场景
   - Consumer数量变化较频繁的场景
@@ -480,7 +480,7 @@ $$
 
 + 多个消费者组订阅了多个Topic，并且每个消费者组里的多个消费者实例的订阅关系保持了一致
 
-![1674196601337](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674196601337.png)
+![1674196601337](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805426.png)
 
 ### 错误订阅关系
 
@@ -513,7 +513,7 @@ $$
 
 在Consumer启动后，其要消费的第一条消息的起始位置常用的有三种，这三种位置可以通过枚举类型常量设置。这个枚举类型为ConsumeFromWhere
 
-![1674197190671](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674197190671.png)
+![1674197190671](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805275.png)
 
 > CONSUME_FROM_LAST_OFFSET：从queue的当前最后一条消息开始消费
 >
@@ -527,7 +527,7 @@ $$
 
 ### 重试队列
 
-![1674197251508](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674197251508.png)
+![1674197251508](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805525.png)
 
 + 当rocketMQ对消息的消费出现异常时，会将发生异常的消息的offset提交到Broker中的重试队列。系统在发生消息消费异常时会为当前的topic@group创建一个重试队列，该队列以%RETRY%开头，到达重试时间后进行消费重试
 
@@ -635,7 +635,7 @@ ConsumeConcurrentlyContext context) {
 
 ### 产生原因分析
 
-![1674200420262](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674200420262.png)
+![1674200420262](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805507.png)
 
 + Consumer使用长轮询Pull模式消费消息时，分为以下两个阶段
 
@@ -747,7 +747,7 @@ ConsumeConcurrentlyContext context) {
 
 Apache RocketMQ 在 4.3.0 版中已经支持分布式事务消息，这里 RocketMQ 采用了 **2PC** 的思想来实现了提交事务消息，同时增加一个补偿逻辑来处理二阶段超时或者失败的消息，如下图所示
 
-![img](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/943a4bd70b3846d6a137874855729e69~tplv-k3u1fbpfcp-zoom-in-crop-mark:1512:0:0:0.awebp)
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805166.webp)
 
 ## Half Message（半消息）
 

@@ -6,7 +6,7 @@
 
 - 同步发送消息是指，Producer发出⼀条消息后，会在收到MQ返回的ACK之后才发下⼀条消息。该方式的消息可靠性最高，但消息发送效率太低
 
-![1674203512942](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674203512942.png)
+![1674203512942](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805593.png)
 
 ```java
 public class SyncProducer {
@@ -55,7 +55,7 @@ public enum SendStatus {
 
 - 异步发送消息是指，Producer发出消息后无需等待MQ返回ACK，直接发送下⼀条消息。该方式的消息可靠性可以得到保障，消息发送效率也可以
 
-![1674203549268](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674203549268.png)
+![1674203549268](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805441.png)
 
 ```java
 public class AsyncProducer {
@@ -100,7 +100,7 @@ public class AsyncProducer {
 
 - 单向发送消息是指，Producer仅负责发送消息，不等待、不处理MQ的ACK。该发送方式时MQ也不返回ACK。该方式的消息发送效率最高，但消息可靠性较差
 
-![1674203577537](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674203577537.png)
+![1674203577537](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805068.png)
 
 ```java
 public class OnewayProducer {
@@ -134,13 +134,13 @@ public class OnewayProducer {
 - T0000001:发货失败
 - 消息发送到MQ中之后，Queue的选择如果采用轮询策略，消息在MQ的存储可能如下
 
-![1674212908903](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674212908903.png)
+![1674212908903](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805677.png)
 
 - 这种情况下，我们希望Consumer消费消息的顺序和我们发送是一致的，然而上述MQ的投递和消费方
   式，我们无法保证顺序是正确的。对于顺序异常的消息，Consumer即使设置有一定的状态容错，也不
   能完全处理好这么多种随机出现组合情况
 
-![1674212935255](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674212935255.png)
+![1674212935255](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805189.png)
 
 - 基于上述的情况，可以设计如下方案：对于相同订单号的消息，通过一定的策略，将其放置在一个Queue中，然后消费者再采用一定的策略（例如，一个线程独立处理一个queue，保证处理消息的顺序性），能够保证消费的顺序性
 
@@ -150,7 +150,7 @@ public class OnewayProducer {
 
 #### 全局有序
 
-![1674212984082](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674212984082.png)
+![1674212984082](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211805859.png)
 
 - 当发送和消费参与的Queue只有一个时所保证的有序是整个Topic中消息的顺序， 称为全局有序
 
@@ -164,7 +164,7 @@ public class OnewayProducer {
 
 #### 分区有序
 
-![1674213035748](C:\Users\qls\AppData\Roaming\Typora\typora-user-images\1674213035748.png)
+![1674213035748](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211806652.png)
 
 - 如果有多个Queue参与，其仅可保证在该Queue分区队列上的消息顺序，则称为分区有序
 
