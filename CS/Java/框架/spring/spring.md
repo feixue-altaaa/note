@@ -6,7 +6,7 @@
 - 对事务的支持 , 对框架的支持
 - 解决企业应用开发的复杂性
 
-一句话概括：
+一句话概括
 
 **Spring是一个轻量级的控制反转(IoC)和面向切面(AOP)的容器（框架）**
 
@@ -55,18 +55,36 @@
 >
 > 一个装配Bean(@Autowired , @Resource，可以通过byTYPE（@Autowired）、byNAME（@Resource）的方式获取Bean)。 完成这两个动作有三种方式，一种是使用自动配置的方式、一种是使用JavaConfig的方式，一种就是使用XML配置的方式
 
+# spring、springmvc、springboot关系
+
+## spring
+
++ Spring是一个三层框架，可以接管web层，业务层，dao层的组件，并且可以配置各种bean,和维护bean与bean之间的关系。其核心就是控制反转(IOC),和面向切面([AOP](https://so.csdn.net/so/search?q=AOP&spm=1001.2101.3001.7020)),简单的说就是一个分层的轻量级开源框架
+
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20200920135841872.jpg?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L20wXzQ1MjcwNjY3,size_16,color_FFFFFF,t_70#pic_center)
+
+## springmvc
+
++ Spring MVC属于[SpringFrameWork](https://so.csdn.net/so/search?q=SpringFrameWork&spm=1001.2101.3001.7020)的后续产品，已经融合在Spring Web Flow里面。SpringMVC是一种web层mvc框架，用于替代servlet处理响应请求，获取表单参数，表单校验等
+
+## **SpringBoot**
+
++ 基于 Spring 的项目有很多的配置。当使用 Spring MVC 时，我们需要配置组件扫描，前段控制器 Servlet，视图解析器。当使用 Hibernate 时，我们需要配置数据源，实体工厂，事务管理等
++ Spring Boot 提供了使用这些框架应用程序所需的基本配置。这就是所谓的**自动配置**
+
 # IOC
 
 ## 什么是IOC
+
+### what
+
 - 控制反转，把对象创建和对象之间的调用过程，交给Spring进行管理
-- 使用IOC目的：为了耦合度降低
-- 做入门案例就是IOC实现
 
 ![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302021914119.webp)
 
 - 在讨论控制反转之前，我们先来看看软件系统中耦合的对象。从图中可以看到，软件中的对象就像齿轮一样，协同工作，但是互相耦合，一个零件不能正常工作，整个系统就崩溃了。这是一个强耦合的系统。齿轮组中齿轮之间的啮合关系,与软件系统中对象之间的耦合关系非常相似。对象之间的耦合关系是无法避免的，也是必要的，这是协同工作的基础。现在，伴随着工业级应用的规模越来越庞大，对象之间的依赖关系也越来越复杂，经常会出现对象之间的多重依赖性关系，因此，架构师和设计师对于系统的分析和设计，将面临更大的挑战。对象之间耦合度过高的系统，必然会出现牵一发而动全身的情形。
 - 为了解决对象间耦合度过高的问题，软件专家Michael Mattson提出了IoC理论，用来实现对象之间的“解耦”。
-- **控制反转（Inversion of Control）**是一种是面向对象编程中的一种设计原则，用来减低计算机代码之间的耦合度。其基本思想是：借助于“第三方”实现具有依赖关系的对象之间的解耦
+- **控制反转（Inversion of Control）**是一种是面向对象编程中的一种设计原则，用来减低计算机代码之间的耦合度。其基本思想是：**借助于“第三方”实现具有依赖关系的对象之间的解耦**
 
 ![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302021915936.webp)
 
@@ -82,7 +100,7 @@
 
 ## 为什么使用IOC
 
-- 使用IOC最大的好处就是减少了代码的耦合度，降低了程序的维护成本。可能很多人都知道这个道理，就是不太明白它到底是怎么降低的，别慌下面让我来给大家讲解一下。
+- 使用IOC最大的好处就是**降低了代码的耦合度，降低了程序的维护成本**。可能很多人都知道这个道理，就是不太明白它到底是怎么降低的，别慌下面让我来给大家讲解一下
 - 假设现在有一道菜：宫保鸡丁
 
 ```java
@@ -147,9 +165,9 @@ public class Restaurant {
 
 ![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302031023694.png)
 
-- 我们一般使用的是BeanFactory的子接口ApplicationContext接口，这个接口提供了更多并且更加强大的功能。
-- 在ApplicationContext接口中有三个常用的实现类分别是：AnnotationConfigApplicationContext、FileSystemXmlApplicationContext、ClassPathXmlApplicationContext。
-- 容器的创建需要读取配置文件或配置类，通过这些配置告诉Spring哪些bean是需要Spring来进行管理的。
+- 我们一般使用的是BeanFactory的子接口ApplicationContext接口，这个接口提供了更多并且更加强大的功能
+- 在ApplicationContext接口中有三个常用的实现类分别是：AnnotationConfigApplicationContext、FileSystemXmlApplicationContext、ClassPathXmlApplicationContext
+- 容器的创建需要读取配置文件或配置类，通过这些配置告诉Spring哪些bean是需要Spring来进行管理的
 - 注意：读取配置文件时，如果读取绝对路径时入参需要添加前缀“file:”，读取相对路径时入参需要添加“classpath:”
 
 ### **AnnotationConfigApplicationContext**
@@ -235,7 +253,7 @@ public class Human {
 
 ## 控制反转和依赖注入的关系
 
-我们已经分别解释了控制反转和依赖注入的概念。有些人会把控制反转和依赖注入等同，但实际上它们有着本质上的不同。
+我们已经分别解释了控制反转和依赖注入的概念。有些人会把控制反转和依赖注入等同，但实际上它们有着本质上的不同
 
 - **控制反转**是一种思想
 - **依赖注入**是一种设计模式
@@ -770,9 +788,11 @@ private int weight;
 # AOP
 
 - AOP : 面向切面编程，通过预编译方式和运行期动态代理实现程序功能统一维护的一种技术
-- 利用AOP可以对业务逻辑的各个部分进行隔离，从而使得业务逻辑各部分之间的耦合度降低，提高程序的可重用性，同时提高了开发的效率
-- **Aop在Spring中的作用** : 提供声明式事务；允许用户自定义切面
-- 通俗描述：不通过修改源代码方式，在主干功能里面添加新功能
+
+## why
+
+- **通过切面，可以实现不修改源代码，在主干功能中添加新功能**
+- 利用AOP可以对业务逻辑的各个部分进行隔离，从而使得**业务逻辑各部分之间的耦合度降低**，提高程序的可重用性，同时提高了开发的效率
 
 ![Spring5框架课堂笔记](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202302031202483.jpg)
 
@@ -790,6 +810,237 @@ private int weight;
   - 异常通知：@AfterThrowing 在目标业务方法抛出异常之后
   - 环绕通知：@Around 功能强大，可代替以上四种通知，还可以控制目标业务方法是否执行以及何时执行
 
+## 样例
+
++ 我们现在有个学校管理系统，已经实现了对老师和学生的增删改，又新来个需求，说是对老师和学生的每次增删改做一个记录，到时候校长可以查看记录的列表。那么问题来了，怎么样处理是最好的解决办法呢？这里我罗列了三种解决办法，我们来看下他的优缺点
++ 最简单的就是第一种方法，我们直接在每次的增删改的函数当中直接实现这个记录的方法，这样代码的重复度太高，耦合性太强，不建议使用
++ 其次就是我们最长使用的，将记录这个方法抽离出来，其他的增删改调用这个记录函数即可，显然代码重复度降低，但是这样的调用还是没有降低耦合性
++ 这个时候我们想一下AOP的定义，再想想我们的场景，其实我们就是要在不改变原来增删改的方法，给这个系统增加记录的方法，而且作用的也是一个层面的方法。这个时候我们就可以采用AOP来实现了
+
+**具体实现**
+
++ 首先我定义了一个自定义注解作为切点
+
+```java
+@Target(AnnotationTarget.FUNCTION)  //注解作用的范围，这里声明为函数
+@Order(Ordered.HIGHEST_PRECEDENCE)  //声明注解的优先级为最高，假设有多个注解，先执行这个
+annotation class Hanler(val handler: HandlerType)  //自定义注解类，HandlerType是一个枚举类型，里面定义的就是学生和老师的增删改操作，在这里就不展示具体内容了
+```
+
++ 接下来就是要定义切面类
+
+```java
+@Aspect   //该注解声明这个类为一个切面类
+@Component
+class HandlerAspect{
+ 
+ @Autowired
+ private lateinit var handlerService: HandlerService
+ 
+@AfterReturning("@annotation(handler)")   //当有函数注释了注解，将会在函数正常返回后在执行我们定义的方法
+fun hanler(hanler: Hanler) {
+    handlerService.add(handler.operate.value)   //这里是真正执行记录的方法
+}
+}
+```
+
++ 最后就是我们本来的业务方法
+
+```java
+/**
+* 删除学生方法
+*/
+@Handler(operate= Handler.STUDENT_DELETE)   //当执行到删除学生方法时，切面类就会起作用了,当学生正常删除后就会执行记录方法，我们就可以看到记录方法生成的数据
+fun delete(id：String) {
+   studentService.delete(id)
+}
+```
+
 ## 底层原理
 
 + `Spring`的`AOP`实现原理其实很简单，就是通过**动态代理**实现的。如果我们为`Spring`的某个`bean`配置了切面，那么`Spring`在创建这个`bean`的时候，实际上创建的是这个`bean`的一个代理对象，我们后续对`bean`中方法的调用，实际上调用的是代理类重写的代理方法。而`Spring`的`AOP`使用了两种动态代理，分别是**JDK的动态代理**，以及**CGLib的动态代理**
+
+> ## 代理是什么
+>
+> 代理模式，就是为其他的对象提供一种代理，以控制对这个对象的访问。Proxy代理对象与被代理对象对于调用方来说，完全一致，并且Proxy代理对调用方隐藏了被代理对象的实现细节。流程如下
+>
+> ![img](https://img-blog.csdnimg.cn/20200604210138666.jpg?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L25ld19jb20=,size_16,color_FFFFFF,t_70)
+>
+> ## 为什么要使用代理模式
+>
+> 没错，代理模式就是这么简单，可以这么理解，Proxy代理对象向调用方统一了对被代理对象的所有方法。有时，在调用被代理对象的正在执行的方法前，可能需要增加参数的校验逻辑，或者打印日志的逻辑；在执行完方法后，可能需要统计执行的时间，触发结束的事件等等逻辑。此时，如果在Proxy代理对象里动态地添加此类逻辑，就避免了在委托对象中硬编码。此时的执行流程1如下
+> ![img](https://img-blog.csdnimg.cn/20200604211302558.jpg?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L25ld19jb20=,size_16,color_FFFFFF,t_70)
+
+## 示例
+
+### 静态代理
+
++ 首先，我们创建一个Person接口。这个接口就是学生（被代理类），和班长（代理类）的公共接口，他们都有交作业的行为。这样，学生交作业就可以让班长来代理执行
+
+```java
+/**
+ * Created by Mapei on 2018/11/7
+ * 创建person接口
+ */
+public interface Person {
+    //交作业
+    void giveTask();
+}
+```
+
++ Student类实现Person接口，Student可以具体实施交作业这个行为
+
+```java
+/**
+ * Created by Mapei on 2018/11/7
+ */
+public class Student implements Person {
+    private String name;
+    public Student(String name) {
+        this.name = name;
+    }
+ 
+    public void giveTask() {
+        System.out.println(name + "交语文作业");
+    }
+}
+```
+
++ StudentsProxy类，这个类也实现了Person接口，但是还另外持有一个学生类对象，那么他可以代理学生类对象执行交作业的行为
+
+```java
+/**
+ * Created by Mapei on 2018/11/7
+ * 学生代理类，也实现了Person接口，保存一个学生实体，这样就可以代理学生产生行为
+ */
+public class StudentsProxy implements Person{
+    //被代理的学生
+    Student stu;
+ 
+    public StudentsProxy(Person stu) {
+        // 只代理学生对象
+        if(stu.getClass() == Student.class) {
+            this.stu = (Student)stu;
+        }
+    }
+ 
+    //代理交作业，调用被代理学生的交作业的行为
+    public void giveTask() {
+        stu.giveTask();
+    }
+}
+```
+
++ 下面测试一下，看代理模式如何使用
+
+```java
+/**
+ * Created by Mapei on 2018/11/7
+ */
+public class StaticProxyTest {
+    public static void main(String[] args) {
+        //被代理的学生林浅，他的作业上交有代理对象monitor完成
+        Person linqian = new Student("林浅");
+ 
+        //生成代理对象，并将林浅传给代理对象
+        Person monitor = new StudentsProxy(linqian);
+ 
+        //班长代理交作业
+        monitor.giveTask();
+    }
+}
+```
+
+### 动态代理
+
+**优点**
+
+1. 动态代理可以在运行时动态地创建代理对象，而静态代理需要在编译时就确定代理对象
+2. 动态代理可以代理多个类，而静态代理只能代理一个类
+3. 动态代理不需要手动编写代理类，而静态代理需要手动编写代理类
+
+
+
++ 定义一个Person接口
+
+```java
+/**
+ * Created by Mapei on 2018/11/7
+ * 创建person接口
+ */
+public interface Person {
+    //交作业
+    void giveTask();
+}
+```
+
++ 创建需要被代理的实际类，也就是学生类
+
+```java
+/**
+ * Created by Mapei on 2018/11/7
+ */
+public class Student implements Person {
+    private String name;
+    public Student(String name) {
+        this.name = name;
+    }
+ 
+    public void giveTask() {
+        System.out.println(name + "交语文作业");
+    }
+}
+```
+
++ 创建StuInvocationHandler类，实现InvocationHandler接口，这个类中持有一个被代理对象的实例target。InvocationHandler中有一个invoke方法，所有执行代理对象的方法都会被替换成执行invoke方法
+
+```java
+/**
+ * Created by Mapei on 2018/11/7
+ */
+public class StuInvocationHandler<T> implements InvocationHandler {
+    //invocationHandler持有的被代理对象
+    T target;
+ 
+    public StuInvocationHandler(T target) {
+        this.target = target;
+    }
+ 
+    /**
+     * proxy:代表动态代理对象
+     * method：代表正在执行的方法
+     * args：代表调用目标方法时传入的实参
+     */
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        System.out.println("代理执行" +method.getName() + "方法");
+        Object result = method.invoke(target, args);
+        return result;
+    }
+}
+```
+
++ 具体的创建代理对象
+
+```java
+/**
+ * Created by Mapei on 2018/11/7
+ * 代理类
+ */
+public class ProxyTest {
+    public static void main(String[] args) {
+ 
+        //创建一个实例对象，这个对象是被代理的对象
+        Person linqian = new Student("林浅");
+ 
+        //创建一个与代理对象相关联的InvocationHandler
+        InvocationHandler stuHandler = new StuInvocationHandler<Person>(linqian);
+ 
+        //创建一个代理对象stuProxy来代理linqian，代理对象的每个执行方法都会替换执行Invocation中的invoke方法
+        Person stuProxy = (Person) Proxy.newProxyInstance(Person.class.getClassLoader(), new Class<?>[]{Person.class}, stuHandler);
+ 
+        //代理执行交作业的方法
+        stuProxy.giveTask();
+    }
+}
+```
+

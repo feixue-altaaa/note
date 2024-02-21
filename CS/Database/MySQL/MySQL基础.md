@@ -1,3 +1,20 @@
+# mysql和Oracle对比
+
+## MySQL
+
++ **中小型数据库**
++ 开源
++ 安装简单（200M以内）
++ 一张表最多能存500万行数据
++ mysql+innodb 两亿数据量没问题
+
+## Oracle
+
++ **大型数据库**
++ 收费，较为昂贵
++ 安装复杂（3G左右）
++ 一张表推荐存500万行数据
+
 # 数据库基础
 
 ## 好处
@@ -82,6 +99,72 @@
   #停止
   net stop mysql
   ```
+
+# 数据类型
+
+## MySQL有哪些数据库类型？
+
+### 数值类型
+
+- 有包括 TINYINT、SMALLINT、MEDIUMINT、INT、BIGINT，分别表示 1 字节、2 字节、3 字节、4 字节、8 字节的整数类型
+- 任何整数类型都可以加上 UNSIGNED 属性，表示无符号整数
+
+- 任何整数类型都可以指定长度，但它不会限制数据的合法长度，仅仅限制了显示长度
+
+- 还有包括 FLOAT、DOUBLE、DECIMAL 在内的小数类型
+
+
+### 字符串类型
+
+- 包括 VARCHAR、CHAR、TEXT、BLOB
+- 注意：VARCHAR(n) 和 CHAR(n) 中的 n 并不代表字节个数，而是代表字符的个数
+
+
+### 日期和时间类型
+
+- 常用于表示日期和时间类型为 DATETIME、DATE 和 TIMESTAMP
+- 尽量使用 TIMESTAMP，空间效率高于 DATETIME
+
+## CHAR 和 VARCHAR 区别？
+
+- 首先可以明确的是 CHAR 是定长的，而 VARCHAR 是可以变长
+  - CHAR 会根据声明的字符串长度分配空间，并会使用空格对字符串右边进行尾部填充。所以在检索 CHAR 类型数据时尾部空格会被删除，如保存的是字符串 'char '，但最后查询到的是 'char'。又因为长度固定，所以存储效率高于 VARCHAR 类型
+
+  - VARCHAR 在 MySQL 5.0 之后长度支持到 65535 字节，但会在数据开头使用额外 1~2 个字节存储字符串长度（列长度小于 255 字节时使用 1 字节表示，否则 2 字节），在结尾使用 1 字节表示字符串结束
+
+- 再者，在存储方式上，CHAR 对英文字符（ASCII）占用 1 字节，对一个汉字使用用 2 字节。而 VARCHAR 对每个字符均使用 2 字节
+
+  - 虽然 VARCHAR 是根据字符串长度分配存储空间的，但在内存中依旧使用声明长度进行排序等作业，故在使用时仍需综合考量字段长度
+
+
+## CHAR 和 VARCHAR 如何选择？
+
+- 对于经常变更的数据来说，CHAR 比 VARCHAR更好，因为 CHAR 不容易产生碎片
+- 对于非常短的列或固定长度的数据（如 MD5），CHAR 比 VARCHAR 在存储空间上更有效率
+
+- 使用时要注意只分配需要的空间，更长的列排序时会消耗更多内存
+
+- 尽量避免使用 TEXT/BLOB 类型，查询时会使用临时表，导致严重的性能开销
+
+
+## CHAR，VARCHAR 和 Text 的区别？
+
+**长度区别**
+
+- Char 范围是 0～255
+
+- Varchar 最长是 64k（注意这里的 64k 是整个 row 的长度，要考虑到其它的 column，还有如果存在 not null 的时候也会占用一位，对不同的字符集，有效长度还不一样，比如 utf-8 的，最多 21845，还要除去别的column），但 Varchar 在一般情况下存储都够用了
+
+- 如果遇到了大文本，考虑使用 Text，最大能到 4G（其中 TEXT 长度 65,535 bytes，约 64kb；MEDIUMTEXT 长度 16,777,215 bytes，约 16 Mb；而 LONGTEXT 长度 4,294,967,295 bytes，约 4Gb）
+
+
+**效率区别**
+
++ 效率来说基本是 Char > Varchar > Text，但是如果使用的是 Innodb 引擎的话，推荐使用 Varchar 代替 Char
+
+**默认值区别**
+
++ Char 和 Varchar 支持设置默认值，而 Text 不能指定默认值
 
 # SQL通用语法
 
@@ -353,6 +436,42 @@ delete from 表名 [where 字段名 = 值]
 
 ## DQL 查询表中数据
 
+## having和where的区别
+
+having子句与where都是设定条件筛选的语句，有相似之处也有区别。
+
+- having是在分组后对数据进行过滤
+- where是在分组前对数据进行过滤
+- having后面可以使用聚合函数
+- where后面不可以使用聚合
+
+在查询过程中执行顺序：**from>where>group（含聚合）>having>order>select。**
+
+聚合语句(sum,min,max,avg,count)要比having子句优先执行，所有having后面可以使用聚合函数。而where子句在查询过程中执行优先级别优先于聚合语句(sum,min,max,avg,count)，所有where条件中不能使用聚合函数
+
+```sql
+select sum(num) as rmb from order where id>10;
+```
+
+//先查询出id大于10的数据，再执行聚合语句sum(num)
+
+//执行以下语句会报错，因为where子句先于sum(num)执行，执行where子句的时候还没有sum(num)，所以会报错
+
+```sql
+select sum(num) as rmb from order where sum(num)>10;
+```
+
+对分组数据再次判断时要用having
+
+```sql
+select reports，count(*) from employees group by reports having count(*) > 4;
+```
+
+//首先查询了select reports，count(*) from employees group by reports，在此基础上查找count(*) > 4的数据
+
+- 聚合函数：例如SUM, COUNT, MAX, AVG等，这些函数和其它函数的根本区别就是它们一般作用在多条记录上
+- HAVING子句可以让我们直接筛选成组后的各组数据，也可以在聚合后对组记录进行筛选，而WHERE子句在聚合前先筛选记录，也就是说作用在GROUP BY 子句和HAVING子句前
+
 ### 简单查询
 
 ```bash
@@ -390,6 +509,10 @@ SELECT ename, salary+1000 AS salary FROM emp;
 |    LIKE '%张%'    |                           模糊查询                           |
 |      IS NULL      |           查询某一列为NULL的值, 注: 不能写 = NULL            |
 
+> MySQL 使用三值逻辑 —— TRUE, FALSE 和 UNKNOWN。任何与 NULL 值进行的比较都会与第三种值 UNKNOWN 做比较。这个“任何值”包括 NULL 本身！这就是为什么 MySQL 提供 IS NULL 和 IS NOT NULL 两种操作来对 NULL 特殊判断
+>
+> https://leetcode.cn/problems/find-customer-referee/solutions/20888/xun-zhao-yong-hu-tui-jian-ren-by-leetcode/?envType=study-plan-v2&envId=sql-free-50
+
 ##### **逻辑运算符**
 
 | 运算符 |       说明       |
@@ -422,12 +545,6 @@ SELECT * FROM emp WHERE ename LIKE '孙%';
 -- 查询第二个字为'兔'的所有员工信息
 SELECT * FROM emp WHERE ename LIKE '_兔%';
 ```
-
-
-
-
-
-
 
 
 

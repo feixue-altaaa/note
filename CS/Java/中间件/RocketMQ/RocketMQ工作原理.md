@@ -232,6 +232,18 @@
 >
 > 一个mappedFile文件中第m+1个消息单元的commitlog offset偏移量L(m+1) = L(m) + MsgLen(m) (m >= 0)
 
+## 定时消息
+
+**定时消息（延迟队列）是指消息发送到 broker 后，不会立即被消费，等待特定时间投递给真正的 topic**。 broker 有配置项`messageDelayLevel`，默认值为“1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h”，18个level。可以配置自定义 `messageDelayLevel`。注意，`messageDelayLevel `是 broker 的属性，不属于某个 topic。发消息时，设置 delayLevel 等级即可：msg.setDelayLevel(level)。level有以下三种情况：
+
+- level == 0，消息为非延迟消息
+- 1<=level<=maxLevel，消息延迟特定时间，例如level==1，延迟1s
+- level > maxLevel，则level== maxLevel，例如level==20，延迟2h
+
+定时消息会暂存在名为 `SCHEDULE_TOPIC_XXXX` 的 topic 中，并根据 delayTimeLevel 存入特定的 queue，queueId = delayTimeLevel – 1，即一个 queue 只存相同延迟的消息，保证具有相同发送延迟的消息能够顺序消费。broker会调度地消费 `SCHEDULE_TOPIC_XXXX`，将消息写入真实的 topic。
+
+需要注意的是，定时消息会在第一次写入和调度写入真实topic时都会计数，因此发送数量、tps都会变高
+
 # indexFile
 
 + 除了通过通常的指定Topic进行消息消费外，RocketMQ还提供了根据key进行消息查询的功能。该查询是通过store目录中的index子目录中的indexFile进行索引实现的快速查询。当然，这个indexFile中的索引数据是在包含了key的消息被发送到Broker时写入的。如果消息中没有包含key，则不会写入
@@ -705,6 +717,10 @@ ConsumeConcurrentlyContext context) {
 
 > 节点数 = 流量峰值 / 单个节点消息吞吐量
 
+## 回溯消费
+
+回溯消费是指 Consumer **已经消费成功的消息**，由于业务上需求需要**重新消费**，要支持此功能，`Broker` 在向 Consumer 投递成功消息后，消息仍然需要保留。并且重新消费一般是按照时间维度，例如由于 Consumer 系统故障，恢复后需要重新消费1小时前的数据，那么 `Broker` 要提供一种机制，**可以按照时间维度来回退消费进度**。RocketMQ 支持按照时间回溯消费，时间维度精确到毫秒
+
 ## 消息的清理
 
 - 消息被消费过后会被清理掉吗？不会的
@@ -726,4 +742,20 @@ ConsumeConcurrentlyContext context) {
 > 1）对于RocketMQ系统来说，删除一个1G大小的文件，是一个压力巨大的IO操作。在删除过程中，系统性能会骤然下降。所以，其默认清理时间点为凌晨4点，访问量最小的时间。也正因如果，我们要保障磁盘空间的空闲率，不要使系统出现在其它时间点删除commitlog文件的情况
 >
 > 2）官方建议RocketMQ服务的Linux文件系统采用ext4。因为对于文件删除操作，ext4要比ext3性能更好
+
+# 事务消息
+
+Apache RocketMQ 在 4.3.0 版中已经支持分布式事务消息，这里 RocketMQ 采用了 **2PC** 的思想来实现了提交事务消息，同时增加一个补偿逻辑来处理二阶段超时或者失败的消息，如下图所示
+
+![img](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/943a4bd70b3846d6a137874855729e69~tplv-k3u1fbpfcp-zoom-in-crop-mark:1512:0:0:0.awebp)
+
+## Half Message（半消息）
+
++ Producer 把消息发送到 `Broker` 端时，该消息是不能被 Consumer 消费的，需要 Producer 对消息**进行二次确认**后，才能被消费
+
+## 消息回查
+
+**由于网络抖动或者 Producer 重启，导致 Producer 一直没有对 `Half Message` 进行二次确认**。`Broker` 端对未确定状态的消息发起回查，将消息发送到对应的 Producer 端（同一个Group的Producer），由 Producer 根据消息来检查本地事务的状态，进而执行 Commit 或者 Rollback 。值得注意的是，RocketMqQ 并不会无休止的的信息事务状态回查，**默认回查15次**，如果15次回查还是无法得知事务状态，默认回滚该消息
+
+
 
