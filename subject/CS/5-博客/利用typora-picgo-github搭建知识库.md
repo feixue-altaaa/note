@@ -74,21 +74,7 @@ GitHub 的令牌，其实就是 token，自我感觉就像自己的 GitHub 对�
 
 ![image-20230124144450802](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202301241444866.png)
 
-# 文件上传及下载
 
-## 上传
-
-```bash
-git add .
-git commit -m "版本名称"
-git push
-```
-
-## 下载
-
-```bash
-git clone URL
-```
 
 # 软件下载地址
 
