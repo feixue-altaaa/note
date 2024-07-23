@@ -4,7 +4,7 @@
 
 MongoDB 中的记录是一个文档，它是由字段和值对组成的数据结构。MongoDB 文档类似于 JSON 对象。字段值可以包含其他文档、数组和文档数组
 
-![A MongoDB document.](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407222119138.svg+xml)
+![A MongoDB document.](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407222203501.svg+xml)
 
 # why
 
@@ -18,7 +18,7 @@ MongoDB 中的记录是一个文档，它是由字段和值对组成的数据结
 
 ### 高性能
 
-MongoDB 提供高性能数据持久性。尤其是，
+MongoDB 提供高性能数据持久性。尤其是
 
 - 对嵌入式数据模型的支持减少了数据库系统上的 I/O 活动。
 - 索引支持更快的查询，并且可以包含嵌入式文档和数组的键。
