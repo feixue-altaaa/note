@@ -85,6 +85,7 @@
 
   ![img](https://img.mubu.com/document_image/fe4a2b68-d104-4b3f-a135-7d8975546567-4093910.jpg)
 
+
 ## MySQL的启动和停止
 
 + 通过计算机管理方式
@@ -99,6 +100,13 @@
   #停止
   net stop mysql
   ```
+
+# 安装与启动
+
+## 安装
+
+## 启动
+
 
 # 数据类型
 
@@ -2352,3 +2360,36 @@ SELECT * FROM emp WHERE ename LIKE '_兔%';
       - 
 
         ![img](https://img.mubu.com/document_image/9d073878-4ff9-422c-8aed-1f80aa97e10b-4093910.jpg)
+
+# question
+
+## **net start mysql 服务名无效 请键入 NET HELPMSG 2185 以获得更多的帮助**
+
+ 原因1 命令行语法错误
+
+原因2  **mysql服务没有注册到windows服务中**
+
+在命令行窗口输入services.msc后敲回车键或者在桌面右键【计算机】---->【管理】---->【服务和应用程序】----> 【服务】，查看服务列表里是否有mysql相关的服务
+
+```bash
+services.msc   #
+```
+
+![image-20240723175726581](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407231757688.png)
+
+如果没有，需要手动添加mysql服务到服务列表中。
+
+**添加方法：**在命令行窗口输入mysqld --install ${名称}后，敲回车键即可。名称可以随便起，比如mysqld --install MySql5.7
+
+## 安装mysql Install/Remove of the Service Denied
+
+**问题**
+
+- 在windows 的**cmd**下安装mysql
+-  在mysql的bin目录下面执行： mysqld --install
+- 报错信息如下：
+- **Install/Remove of the Service Denied**
+
+**解决办法**
+
++ 打开cmd.exe程序的时候选择“用管理员身份打开”
