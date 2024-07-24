@@ -2361,7 +2361,7 @@ SELECT * FROM emp WHERE ename LIKE '_兔%';
 
         ![img](https://img.mubu.com/document_image/9d073878-4ff9-422c-8aed-1f80aa97e10b-4093910.jpg)
 
-# question
+# 运行question
 
 ## **net start mysql 服务名无效 请键入 NET HELPMSG 2185 以获得更多的帮助**
 
