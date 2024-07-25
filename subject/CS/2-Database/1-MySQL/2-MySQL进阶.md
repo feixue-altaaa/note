@@ -2029,6 +2029,103 @@ ibd2sdi stu.ibd
 
 
 
+# 常见问题
+
+## Java项目如何防止SQL注入
+
+### 什么是SQL注入？
+
+SQL注入(SQL Injection)是一种代码注入技术,是通过把SQL命令插入到Web表单递交或输入域名或页面请求的查询字符串,最终达到欺骗服务器执行恶意的SQL命令。简单来说,SQL注入攻击者通过把SQL命令插入到Web表单提交或输入域名或页面请求的查询字符串,传入后端的SQL服务器执行。结果是可以执行恶意攻击者设计的任意SQL命令。例如,Web应用程序具有以下登录页面
+
+```yaml
+User Name: admin
+Password: 1234
+```
+
+攻击者在密码框中输入
+
+```
+'1234 ' or '1'='1
+```
+
+之后构造的SQL查询为
+
+```
+SELECT * FROM users WHERE name='admin' AND password='1234 ' or '1'='1';
+```
+
+由于'或'1'='1 总是为真,所以可以绕过密码验证登录系统。SQL注入可以通过多种方式进行防范,如使用参数化的SQL语句、输入验证和过滤等方法
+
+### 防止SQL注入方式
+
+#### PreparedStatement防止SQL注入
+
+使用PreparedStatement可以有效防止SQL注入攻击。PreparedStatement会先将SQL语句发送到数据库进行预编译,之后再将参数值单独传递,从而避免了SQL语句拼接的过程。例如,使用Statement时
+
+```java
+String sql = "SELECT * FROM users WHERE name = ? AND password = ?";
+PreparedStatement stmt = connection.prepareStatement(sql);
+stmt.setString(1, username); 
+stmt.setString(2, password);
+```
+
+PreparedStatement会区分SQL语句字符串和参数值,用`?`作为占位符,之后调用setString()等方法设置参数,这样可以有效防止SQL注入
+
+#### mybatis中#{}防止SQL注入
+
+在MyBatis中,可以使用#{}来防止SQL注入。#{}是MyBatis提供的PreparedStatement的参数占位符。MyBatis会自动将#{}替换为? ,并且对用户传入的参数自动进行Escape处理,以防止SQL注入。例如
+
+```java
+<select id="findUser" parameterType="String" resultType="User">
+  select * from user where name = #{name}
+</select>
+```
+
+在Mapper接口中
+
+```java
+User findUser(String name);
+```
+
+在这里,传入的name参数会被直接传递给PreparedStatement作为参数,而不是拼接到SQL语句中,所以安全。如果使用${}进行拼接
+
+#### 对请求参数的敏感词汇进行过滤
+
+对用户请求参数中的敏感词汇进行过滤,可以防止多种注入攻击,包括SQL注入、XSS等。 常见的防范措施包括:
+
+1. **构建敏感词汇库**,收集所有可能的敏感词汇,如delete、drop、script等。并定期更新。
+2. **对用户请求参数进行遍历,判断参数值是否包含敏感词汇。** 可以用正则表达式或包含关系来判断。
+3. **一旦发现参数值存在敏感词汇,可以采取以下措施**:
+
+- 返回错误,拒绝请求
+- 删除敏感词汇后,再进行后续处理
+- 将敏感词汇替换为安全的占位符,如replace('delete', '***')
+
+1. **对关键参数与业务规则进行校验**,例如长度、类型、允许范围等。
+2. **考虑在边界处过滤**,如WAF、防火墙等。
+3. **避免直接在SQL中拼接参数,应使用参数化查询**。
+4. **输出时对敏感数据编码或替换**
+
+#### nginx反向代理防止SQL注入
+
+nginx作为反向代理服务器,可以实现一些防范SQL注入的措施:
+
+**请求参数过滤** 可以使用nginx的ngx_http_rewrite_module模块,在server区域加入过滤规则,对请求参数中敏感字符进行过滤或拦截,例如
+
+```java
+if ($args ~* "select|insert|update|delete|drop|exec") {
+ return 403;
+}
+```
+
+**WAF功能** 启用nginx的Web应用防火墙功能,对疑似SQL注入的请求进行拦截,如检测特殊字符,语句规则等。
+
+**访问控制** 通过nginx的access模块,禁止某些IP地址或子网段访问,限制请求频率,以防止滥用。
+
+**隐藏数据库结构信息** nginx可以基于请求中的User-Agent等信息,显示不同的错误页面,避免泄露数据库元信息。
+
+**连接数据库的用户权限控制** 只允许访问应用需要的最小权限集
+
 
 
 
