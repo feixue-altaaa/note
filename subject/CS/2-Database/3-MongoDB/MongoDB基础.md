@@ -487,6 +487,54 @@ db.createCollection("myComplexCollection", {
 
 - 默认使用英语排序规则
 
+#### 固定集合（Capped Collections）
+
+MongoDB 固定集合（Capped Collections）是性能出色且有着固定大小的集合，对于大小固定，我们可以想象其就像一个环形队列，当集合空间用完后，再插入的元素就会覆盖最初始的头部的元素
+
+**创建固定集合**
+
+我们通过createCollection来创建一个固定集合，且capped选项设置为true
+
+```
+db.createCollection("cappedLogCollection",{capped:true,size:10000})
+
+ //还可以指定文档个数,加上max:1000属性
+ db.createCollection("cappedLogCollection",{capped:true,size:10000,max:1000})
+
+//判断集合是否为固定集合
+>db.cappedLogCollection.isCapped()
+
+//如果需要将已存在的集合转换为固定集合可以使用以下命令
+>db.runCommand({"convertToCapped":"posts",size:10000})
+```
+
+**固定集合查询**
+
+固定集合文档按照插入顺序储存的,默认情况下查询就是按照插入顺序返回的,也可以使用$natural调整返回顺序
+
+```java
+>db.cappedLogCollection.find().sort({$natural:-1})
+```
+
+**固定集合的功能特点**
+
+可以插入及更新,但更新不能超出collection的大小,否则更新失败,不允许删除,但是可以调用drop()删除集合中的所有行,但是drop后需要显式地重建集合。
+
+在32位机子上一个cappped collection的最大值约为482.5M,64位上只受系统文件大小的限制。
+
+**固定集合属性及用法**
+
+**属性**
+
+- 属性1:对固定集合进行插入速度极快
+- 属性2:按照插入顺序的查询输出速度极快
+- 属性3:能够在插入最新数据时,淘汰最早的数据
+
+**用法**
+
+- 用法1:储存日志信息
+- 用法2:缓存一些少量的文档
+
 #### 删除与查看
 
 ```mongo
@@ -656,6 +704,74 @@ db.myCollection.save({
     age: 40,
     city: "San Francisco"
 });
+```
+
+**自动增长ID**
+
+MongoDB 没有像 SQL 一样有自动增长的功能， MongoDB 的 _id 是系统自动生成的12字节唯一标识。但在某些情况下，我们可能需要实现 ObjectId 自动增长功能
+
+由于 MongoDB 没有实现这个功能，我们可以通过编程的方式来实现，以下我们将在 counters 集合中实现_id字段自动增长
+
+考虑以下 products 文档。我们希望 _id 字段实现 从 1,2,3,4 到 n 的自动增长功能
+
+```mongo
+{
+  "_id":1,
+  "product_name": "Apple iPhone",
+  "category": "mobiles"
+}
+```
+
+为此，创建 counters 集合，序列字段值可以实现自动长。现在我们向 counters 集合中插入以下文档，使用 productid 作为键值。**该文档起保存自动增长次数作用**。sequence_value 字段是序列通过自动增长后的一个值
+
+```mongo
+{
+  "_id":"productid",
+  "sequence_value": 0
+}
+```
+
+**创建 Javascript 函数**
+
+现在，我们创建函数 getNextSequenceValue 来作为序列名的输入， 指定的序列会自动增长 1 并返回最新序列值。在本文的实例中序列名为 productid
+
+```javascript
+>function getNextSequenceValue(sequenceName){
+   var sequenceDocument = db.counters.findAndModify(
+      {
+         query:{_id: sequenceName },
+         update: {$inc:{sequence_value:1}},
+         "new":true
+      });
+   return sequenceDocument.sequence_value;
+}
+```
+
+**使用 Javascript 函数**
+
+接下来我们将使用 getNextSequenceValue 函数创建一个新的文档， 并设置文档 _id 自动为返回的序列值
+
+```javascript
+>db.products.insert({
+   "_id":getNextSequenceValue("productid"),
+   "product_name":"Apple iPhone",
+   "category":"mobiles"})
+
+>db.products.insert({
+   "_id":getNextSequenceValue("productid"),
+   "product_name":"Samsung S3",
+   "category":"mobiles"})
+```
+
+就如你所看到的，我们使用 getNextSequenceValue 函数来设置 _id 字段。为了验证函数是否有效，我们可以使用以下命令读取文档
+
+```javascript
+>db.products.find()
+
+//以上命令将返回以下结果，我们发现 _id 字段是自增长的
+{ "_id" : 1, "product_name" : "Apple iPhone", "category" : "mobiles"}
+
+{ "_id" : 2, "product_name" : "Samsung S3", "category" : "mobiles" }
 ```
 
 #### 更新
@@ -1071,6 +1187,530 @@ db.myCollection.find().skip(20).limit(10);
 >
 > - `skip()` 和 `limit()` 方法通常用于配合使用，以实现分页查询。但是在大型数据集上使用 `skip()` 可能会导致性能问题，因为 MongoDB 在执行查询时需要扫描并跳过指定数量的文档，因此建议仅在需要时才使用 `skip()` 方法，尽量避免在大型数据集上连续使用
 > - 当结合 `skip()` 和 `limit()` 时，`skip()` 应该在 `limit()` 之前使用，以避免意外行为
+
+#### 正则表达式
+
+正则表达式是使用单个字符串来描述、匹配一系列符合某个句法规则的字符串。
+
+许多程序设计语言都支持利用正则表达式进行字符串操作。
+
+MongoDB 使用 **$regex** 操作符来设置匹配字符串的正则表达式。
+
+MongoDB使用PCRE (Perl Compatible Regular Expression) 作为正则表达式语言。
+
+不同于全文检索，我们使用正则表达式不需要做任何配置。
+
+考虑以下 **posts** 集合的文档结构，该文档包含了文章内容和标签
+
+```
+{
+   "post_text": "enjoy the mongodb articles on runoob",
+   "tags": [
+      "mongodb",
+      "runoob"
+   ]
+}
+```
+
+以下命令使用正则表达式查找包含 runoob 字符串的文章
+
+```java
+db.posts.find({post_text:{$regex:"runoob"}})
+
+//也可以写为
+db.posts.find({post_text:/runoob/})    
+```
+
+如果检索需要不区分大小写，我们可以设置 $options 为 $i。
+
+以下命令将查找不区分大小写的字符串 runoob
+
+```java
+db.posts.find({post_text:{$regex:"runoob",$options:"$i"}})
+```
+
+**数组元素使用正则表达式**
+
+我们还可以在数组字段中使用正则表达式来查找内容。 这在标签的实现上非常有用，如果你需要查找包含以 run 开头的标签数据(ru 或 run 或 runoob)， 你可以使用以下代码
+
+```java
+>db.posts.find({tags:{$regex:"run"}})
+```
+
+**优化正则表达式查询**
+
+- 如果你的文档中字段设置了索引，那么使用索引相比于正则表达式匹配查找所有的数据查询速度更快。
+- 如果正则表达式是前缀表达式，所有匹配的数据将以指定的前缀字符串为开始。例如： 如果正则表达式为 **^tut** ，查询语句将查找以 tut 为开头的字符串。
+
+**这里面使用正则表达式有两点需要注意**
+
+正则表达式中使用变量。一定要使用eval将组合的字符串进行转换，不能直接将字符串拼接后传入给表达式。否则没有报错信息，只是结果为空！实例如下
+
+```java
+var name=eval("/" + 变量值key +"/i"); 
+```
+
+#### 聚合查询
+
+聚合操作主要用于处理数据并返回计算结果。聚合操作将来自多个文档的值组合在一起，按条件分组后，再进行一系列操作（如求和、平均值、最大值、最小值）以返回单个结果
+
+##### **聚合管道**
+
+MongoDB 的聚合框架就是将文档输入处理管道，在管道内完成对文档的操作，最终将文档转换为聚合结果，MongoDB的聚合管道将MongoDB文档在一个管道处理完毕后将结果传递给下一个管道处理，管道操作是可以重复的
+
+**聚合流程**
+
+db.collection.aggregate()是基于数据处理的聚合管道，每个文档通过一个由多个阶段（stage）组成的管道，可以对每个阶段的管道进行分组、过滤等功能，然后经过一系列的处理，输出相应的结果
+
+聚合管道方法的流程参见下图
+
+![file](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407281447509.png)
+
+上图的聚合操作相当于 MySQL 中的以下语句
+
+```sql
+select cust_id as _id, sum(amount) as total from orders where status like "%A%" group by cust_id;
+```
+
+**详细流程**
+
+1. `db.collection.aggregate()` 可以用多个构件创建一个管道，对于一连串的文档进行处理。这些构件包括：筛选操作的`match`、映射操作的`project`、分组操作的`group`、排序操作的`sort`、限制操作的`limit`、和跳过操作的`skip`。
+2. `db.collection.aggregate()`使用了MongoDB内置的原生操作，聚合效率非常高,支持类似于SQL Group By操作的功能，而不再需要用户编写自定义的JavaScript例程。
+3. 每个阶段管道限制为100MB的内存。如果一个节点管道超过这个极限,MongoDB将产生一个错误。为了能够在处理大型数据集,可以设置`allowDiskUse`为`true`来在聚合管道节点把数据写入临时文件。这样就可以解决100MB的内存的限制。
+4. `db.collection.aggregate()`可以作用在分片集合，但结果不能输在分片集合，`MapReduce`可以 作用在分片集合，结果也可以输在分片集合。
+5. `db.collection.aggregate()`方法可以返回一个指针（`cursor`），数据放在内存中，直接操作。跟Mongo shell 一样指针操作。
+6. `db.collection.aggregate()`输出的结果只能保存在一个文档中，`BSON Document`大小限制为16M。可以通过返回指针解决，版本2.6中：`DB.collect.aggregate()`方法返回一个指针，可以返回任何结果集的大小
+
+**聚合语法**
+
+```java
+db.collection.aggregate(pipeline, options)
+```
+
+| 参数     | 类型     | 描述                                                         |
+| -------- | -------- | ------------------------------------------------------------ |
+| pipeline | array    | 一系列数据聚合操作或阶段。详见[聚合管道操作符](https://link.segmentfault.com/?enc=yzxRo7axGhcQpUjw8i84vg%3D%3D.tVV5SpuQqSvNDjsfvBsmowLAA2CHIgqeSBHoEs0lTggvXL2ZSOG60tb3E5HZe2sZjbc%2BqWwdm965bBnbPUzf%2Bw%3D%3D) 在版本2.6中更改：该方法仍然可以将流水线阶段作为单独的参数接受，而不是作为数组中的元素;但是，如果不将管道指定为数组，则不能指定options参数 |
+| options  | document | 可选。 aggregate()传递给聚合命令的其他选项。 2.6版中的新增功能：仅当将管道指定为数组时才可用 |
+
+**与mysql聚合类比**
+
+| SQL 操作/函数 | mongodb聚合操作 |
+| :-----------: | :-------------: |
+|     where     |     $match      |
+|   group by    |     $group      |
+|    having     |     $match      |
+|    select     |    $project     |
+|   order by    |      $sort      |
+|     limit     |     $limit      |
+|     sum()     |      $sum       |
+|    count()    |      $sum       |
+|     join      |     $lookup     |
+
+**$group**
+
+按指定的表达式对文档进行分组
+
+```java
+{ $group: { _id: <expression>, <field1>: { <accumulator1> : <expression1> }, ... } }
+```
+
+- `_id`字段是必填的;但是，可以指定_id值为null来为整个输入文档计算累计值。
+- 剩余的计算字段是可选的，并使用`<accumulator>`运算符进行计算。
+- `_id`和`<accumulator>`表达式可以接受任何有效的表达式
+
+**accumulator操作符**
+
+|    名称     | 描述                                                         |
+| :---------: | ------------------------------------------------------------ |
+|    $avg     | 计算均值                                                     |
+|   $first    | 返回每组第一个文档，如果有排序，按照排序，如果没有按照默认的存储的顺序返回第一个文档。 |
+|    $last    | 返回每组最后一个文档，如果有排序，按照排序，如果没有按照默认的存储的顺序返回最后一个文档。 |
+|    $max     | 根据分组，获取集合中所有文档对应值的最大值。                 |
+|    $min     | 根据分组，获取集合中所有文档对应值的最小值。                 |
+|    $push    | 将指定的表达式的值添加到一个数组中。                         |
+|  $addToSet  | 将表达式的值添加到一个集合中（无重复值，无序）。             |
+|    $sum     | 计算总和                                                     |
+| $stdDevPop  | 返回输入值的总体标准偏差（population standard deviation）    |
+| $stdDevSamp | 返回输入值的样本标准偏差（the sample standard deviation）    |
+
+> **注意：**
+>
+> - "$addToSet":expr，如果当前数组中不包含expr，那就将它添加到数组中。
+> - "$push":expr，不管expr是什么值，都将它添加到数组中，返回包含所有值的数组
+
+**案例-按照`state`分组，并计算每一个state分组的总人数，平均人数以及每个分组的数量**
+
+```java
+db.zips.aggregate([
+    {
+        "$group": {
+            "_id": "$state",
+            "totalPop": {
+                "$sum": "$pop"
+            },
+            "avglPop": {
+                "$avg": "$pop"
+            },
+            "count": {
+                "$sum": 1
+            }
+        }
+    }
+])
+```
+
+![file](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407281501968.png)
+
+**案例-按照`city`分组，并且分组内的`state`字段列表加入到`stateItem`并显示**
+
+```java
+db.zips.aggregate([
+    {
+        "$group": {
+            "_id": "$city",
+            "stateItem": {
+                "$push": "$state"
+            }
+        }
+    }
+])
+```
+
+![file](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407281502599.png)
+
+**案例-state重复个数大于100的城市**
+
+```java
+db.zips.aggregate([
+    {
+        "$group": {
+            "_id": "$state",
+            "total": {
+                "$sum": 1
+            }
+        }
+    },
+    {
+        "$match": {
+            "total": {
+                "$gt": 100
+            }
+        }
+    }
+])
+```
+
+**$match**
+
+过滤文档，仅将符合指定条件的文档传递到下一个管道阶段
+
+```java
+{ $match: { <query> } }
+```
+
+$match可以使用除了地理空间之外的所有常规查询操作符，**在实际应用中尽可能将$match放在管道的前面位置**。这样有两个好处：
+
+- 一是可以快速将不需要的文档过滤掉，以**减少管道的工作量**
+- 二是如果在投射和分组之前执行$match，**查询可以使用索引**
+
+**案例-使用$match管道选择要处理的文档，然后将结果输出到$group管道以计算文档的计数**
+
+```java
+db.zips.aggregate([
+    {
+        "$match": {
+            "state": "NY"
+        }
+    },
+    {
+        "$group": {
+            "_id": null,
+            "sum": {
+                "$sum": "$pop"
+            },
+            "avg": {
+                "$avg": "$pop"
+            },
+            "count": {
+                "$sum": 1
+            }
+        }
+    }
+]).pretty();
+```
+
+![file](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407281504790.png)
+
+**$unwind**
+
+将数组拆分为单独的文档
+
+**案例-使用$unwind为loc数组中的每个元素输出一个文档**
+
+```java
+db.zips.aggregate([
+    {
+        "$match": {
+            "_id": "01002"
+        }
+    },
+    {
+        "$unwind": "$loc"
+    }
+]).pretty();
+```
+
+![file](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407281506894.png)
+
+**$project**
+
+$project可以从文档中选择想要的字段，和不想要的字段，也可以通过管道表达式进行一些复杂的操作，例如数学操作，日期操作，字符串操作，逻辑操作
+
+**语法**
+
+$project 管道符的作用是选择字段（指定字段，添加字段，不显示字段,_id：0，排除字段等），重命名字段，派生字段
+
+```java
+{ $project: { <specification(s)> } }
+```
+
+field:1/0，表示选择/不选择
+
+- 默认情况下，_id字段包含在输出文档中。要在输出文档中包含输入文档中的任何其他字段，必须明确指定$project中的包含。 如果指定包含文档中不存在的字段，$project将忽略该字段包含，并且不会将该字段添加到文档中。
+- 默认情况下，_id字段包含在输出文档中。要从输出文档中排除_id字段，必须明确指定$project中的_id字段为0。
+- v3.4版新增功能-如果指定排除一个或多个字段，则所有其他字段将在输出文档中返回。 如果指定排除_id以外的字段，则不能使用任何其他$project规范表单：即，如果排除字段，则不能指定包含字段，重置现有字段的值或添加新字段。此限制不适用于使用REMOVE变量条件排除字段。
+
+**案例-`_id`字段默认包含在内。要从$ project阶段的输出文档中排除`_id`字段，请在project文档中将`_id`字段设置为0来指定排除_id字段**
+
+```java
+db.zips.aggregate([
+    {
+        "$project": {
+            "_id": 0,
+            "city": 1,
+            "state": 1
+        }
+    }
+]).pretty();
+```
+
+![file](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407281514618.png)
+
+**$limit**
+
+限制传递到管道中下一阶段的文档数
+
+```java
+{ $limit: <positive integer> }
+```
+
+**案例-返回管道传递给它的前5个文档。 $limit对其传递的文档内容没有影响**
+
+```java
+db.zips.aggregate({
+    "$limit": 5
+});
+```
+
+**$skip**
+
+跳过进入stage的指定数量的文档，并将其余文档传递到管道中的下一个阶段
+
+```java
+{ $skip: <positive integer> }
+```
+
+**案例-跳过管道传递给它的前5个文档**
+
+```java
+db.zips.aggregate({
+    "$skip": 5
+});
+```
+
+**$sort**
+
+对所有输入文档进行排序，并按排序顺序将它们返回到管道
+
+```java
+{ $sort: { <field1>: <sort order>, <field2>: <sort order> ... } }
+```
+
+$sort指定要排序的字段和相应的排序顺序的文档。 `<sort order>`可以具有以下值之一：
+
+- 1指定升序
+- -1指定降序
+- {$meta：“textScore”}按照降序排列计算出的textScore元数据
+
+**案例**
+
+```java
+db.zips.aggregate([
+    {
+        "$sort": {
+            "pop": -1,
+            "city": 1
+        }
+    }
+])
+```
+
+##### Map-Reduce函数
+
+MongoDB还提供map-reduce操作来执行聚合。 通常，**map-reduce操作有两个阶段**：**一个map阶段**，它处理每个文档并为每个输入文档发出一个或多个对象，以及**reduce阶段**组合map操作的输出。 可选地，map-reduce可以具有最终化阶段以对结果进行最终修改。 与其他聚合操作一样，map-reduce可以指定查询条件以选择输入文档以及排序和限制结果。
+
+Map-reduce使用自定义JavaScript函数来执行映射和减少操作，以及可选的finalize操作。 虽然自定义JavaScript与聚合管道相比提供了极大的灵活性，但通常，map-reduce比聚合管道效率更低，更复杂。模式如下
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407281541598.webp)
+
+以下是MapReduce**的基本语法**
+
+```java
+>db.collection.mapReduce(
+   function() {emit(key,value);},  //map 函数
+   function(key,values) {return reduceFunction},   //reduce 函数
+   {
+      out: collection,
+      query: document,
+      sort: document,
+      limit: number
+   }
+)
+
+```
+
+使用 MapReduce 要实现两个函数 Map 函数和 Reduce 函数,Map 函数调用 emit(key, value), 遍历 collection 中所有的记录, 将 key 与 value 传递给 Reduce 函数进行处理。
+
+Map 函数必须调用 emit(key, value) 返回键值对。
+
+参数说明:
+
+- **map** ：映射函数 (生成键值对序列,作为 reduce 函数参数)。
+- **reduce** 统计函数，reduce函数的任务就是将key-values变成key-value，也就是把values数组变成一个单一的值value。。
+- **out** 统计结果存放集合 (不指定则使用临时集合,在客户端断开后自动删除)。
+- **query** 一个筛选条件，只有满足条件的文档才会调用map函数。（query。limit，sort可以随意组合）
+- **sort** 和limit结合的sort排序参数（也是在发往map函数前给文档排序），可以优化分组机制
+- **limit** 发往map函数的文档数量的上限（要是没有limit，单独使用sort的用处不大）
+
+**案例-在集合 orders 中查找 status:"A" 的数据，并根据 cust_id 来分组，并计算 amount 的总和**
+
+文档存储了用户的 user_name 和文章的 status 字段
+
+```mongo
+>db.posts.insert({
+   "post_text": "菜鸟教程，最全的技术文档。",
+   "user_name": "mark",
+   "status":"active"
+})
+WriteResult({ "nInserted" : 1 })
+>db.posts.insert({
+   "post_text": "菜鸟教程，最全的技术文档。",
+   "user_name": "mark",
+   "status":"active"
+})
+WriteResult({ "nInserted" : 1 })
+>db.posts.insert({
+   "post_text": "菜鸟教程，最全的技术文档。",
+   "user_name": "mark",
+   "status":"active"
+})
+WriteResult({ "nInserted" : 1 })
+>db.posts.insert({
+   "post_text": "菜鸟教程，最全的技术文档。",
+   "user_name": "mark",
+   "status":"active"
+})
+WriteResult({ "nInserted" : 1 })
+>db.posts.insert({
+   "post_text": "菜鸟教程，最全的技术文档。",
+   "user_name": "mark",
+   "status":"disabled"
+})
+WriteResult({ "nInserted" : 1 })
+>db.posts.insert({
+   "post_text": "菜鸟教程，最全的技术文档。",
+   "user_name": "runoob",
+   "status":"disabled"
+})
+WriteResult({ "nInserted" : 1 })
+>db.posts.insert({
+   "post_text": "菜鸟教程，最全的技术文档。",
+   "user_name": "runoob",
+   "status":"disabled"
+})
+WriteResult({ "nInserted" : 1 })
+>db.posts.insert({
+   "post_text": "菜鸟教程，最全的技术文档。",
+   "user_name": "runoob",
+   "status":"active"
+})
+WriteResult({ "nInserted" : 1 })
+```
+
+现在，我们将在 posts 集合中使用 mapReduce 函数来选取已发布的文章(status:"active")，并通过user_name分组，计算每个用户的文章数
+
+```java
+>db.posts.mapReduce( 
+   function() { emit(this.user_name,1); }, 
+   function(key, values) {return Array.sum(values)}, 
+      {  
+         query:{status:"active"},  
+         out:"post_total" 
+      }
+)
+```
+
+以上 mapReduce 输出结果为
+
+```
+{
+        "result" : "post_total",
+        "timeMillis" : 23,
+        "counts" : {
+                "input" : 5,
+                "emit" : 5,
+                "reduce" : 1,
+                "output" : 2
+        },
+        "ok" : 1
+}
+```
+
+结果表明，共有 5 个符合查询条件（status:"active"）的文档， 在map函数中生成了 5 个键值对文档，最后使用reduce函数将相同的键值分为 2 组
+
+具体参数说明
+
+- result：储存结果的collection的名字,这是个临时集合，MapReduce的连接关闭后自动就被删除了。
+- timeMillis：执行花费的时间，毫秒为单位
+- input：满足条件被发送到map函数的文档个数
+- emit：在map函数中emit被调用的次数，也就是所有集合中的数据总量
+- output：结果集合中的文档个数**（count对调试非常有帮助）**
+- ok：是否成功，成功为1
+- err：如果失败，这里可以有失败原因，不过从经验上来看，原因比较模糊，作用不大
+
+使用 find 操作符来查看 mapReduce 的查询结果
+
+```java
+> var map=function() { emit(this.user_name,1); }
+> var reduce=function(key, values) {return Array.sum(values)}
+> var options={query:{status:"active"},out:"post_total"}
+> db.posts.mapReduce(map,reduce,options)
+{ "result" : "post_total", "ok" : 1 }
+> db.post_total.find();
+```
+
+以上查询显示如下结果
+
+```
+{ "_id" : "mark", "value" : 4 }
+{ "_id" : "runoob", "value" : 1 }
+```
+
+##### 单一的聚合命令
+
+  MongoDB还提供了，db.collection.estimatedDocumentCount（），db.collection.count（）和db.collection.distinct（） 所有这些单一的聚合命令。 虽然这些操作提供了对常见聚合过程的简单访问操作，但它们缺乏聚合管道和map-reduce的灵活性和功能。模型如下
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407281541141.webp)
 
 #### 排序
 
