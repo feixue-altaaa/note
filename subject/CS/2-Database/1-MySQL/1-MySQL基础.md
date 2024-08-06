@@ -86,26 +86,33 @@
   ![img](https://img.mubu.com/document_image/fe4a2b68-d104-4b3f-a135-7d8975546567-4093910.jpg)
 
 
-# 安装与启动
+# 安装与运行
 
 ## 安装
 
-+ 需配置数据文件地址、端口号、用户密码
-
-## MySQL的启动和停止
+## MySQL的启动和运行
 
 + 通过计算机管理方式
 
   + 计算机--管理--服务--启动或停止MySQL服务
 
-+ 命令行
+### 命令行
 
-  ```bash
-  #启动
-  net start mysql
-  #停止
-  net stop mysql
-  ```
+```bash
+#启动
+net start mysql
+#停止
+net stop mysql
+
+#进入mysql
+mysql -u root -p
+
+#创建数据库
+create database xxx;
+
+#查看数据库
+show database;
+```
 
 
 # 数据类型
