@@ -1,3 +1,43 @@
+# 连接数据库
+
+## MySQL
+
+**先从菜单View→Tool Windows→Database打开数据库工具窗口，如下图所示**
+
+![image-20240806154336571](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408061543989.png)
+
+**单击“+”按钮添加新数据源，并从列表中选择“MySQL”**
+
+填写所需信息
+
+- 主机：localhost（或您的MySQL服务器地址）
+- 端口：3306（MySQL的默认端口）
+- 用户：您的MySQL用户名
+- 密码：您的MySQL密码
+- 数据库：您的MySQL数据库名称
+
+单击“Test Connection”按钮测试连接。如果成功，请单击“OK”保存配置
+
+![image-20240806154447551](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408061544584.png)
+
+**连接时报错Server returns invalid timezone. Need to set 'serverTimezone' property**
+
+**解决操作**
+
+- 设置`mysql`的时区
+- `mysql`驱动的版本
+
+进入命令窗口（`Win + R`），连接数据库 `mysql -hlocalhost -uroot -p`，回车，输入密码，回车
+继续输入 `show variables like'%time_zone';` （注意不要漏掉后面的分号），回车，如下图
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408061546397.png)
+
+显示 `SYSTEM` 就是没有设置时区
+
+输入`set global time_zone = '+8:00';` 注意不要漏掉后面的分号），回车
+
+重新连接下数据库，连接成功
+
 # 在Idea中隐藏指定文件/文件
 
 ​		既然是在Idea下做隐藏功能，肯定隶属于Idea的设置，设置方式如下。
