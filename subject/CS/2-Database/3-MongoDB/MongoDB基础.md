@@ -660,6 +660,12 @@ db.test.insert({
     name:"qqq",
     age:"23"
 })
+
+db.myCollection.insertOne({
+    name: "Alice",
+    age: 25,
+    city: "New York"
+});
 ```
 
 ```java
@@ -668,24 +674,33 @@ db.collection.insertOne(document, options)
 //options（可选）：一个可选参数对象，可以包含 writeConcern 和bypassDocumentValidation 等
 
 //案例
-db.myCollection.insertOne({
-    name: "Alice",
-    age: 25,
-    city: "New York"
-});
+    //同一个文档不能同时插入两次，会报MongoBulkWriteException
+Document doc = new Document("name", "zoro").append("age", 26);
+collection.insertOne(doc);
 ```
 
 **插入多个文档**
+
+```mongo
+db.myCollection.insertMany([
+    { name: "Bob", age: 30, city: "Los Angeles" },
+    { name: "Charlie", age: 35, city: "Chicago" }
+]);
+```
 
 ```java
 db.collection.insertMany(documents, options)
 //options（可选）：一个可选参数对象，可以包含 ordered、writeConcern 和 bypassDocumentValidation 等
  
 //案例
-db.myCollection.insertMany([
-    { name: "Bob", age: 30, city: "Los Angeles" },
-    { name: "Charlie", age: 35, city: "Chicago" }
-]);
+Document doc = new Document("name", "zoro").append("age", 26);
+Document doc2 = new Document("gender", "male");
+
+List<Document> docList = new ArrayList<Document>();
+docList.add(doc);
+docList.add(doc2);
+
+collection.insertMany(docList);
 ```
 
 **保存**
@@ -872,12 +887,23 @@ db.myCollection.findOneAndUpdate(
 
 #### 删除
 
+**drop**
+
+```java
+//删除集合中全部数据
+collection.drop();
+```
+
 **deleteOne()**
 
 deleteOne() 方法用于删除匹配过滤器的单个文档
 
 ```java
 db.collection.deleteOne(filter, options)
+    
+//案例
+Document query = new Document().append("name", "luosong");
+collection.deleteOne(query);
 ```
 
 - **filter**：用于查找要删除的文档的查询条件。
@@ -903,8 +929,10 @@ deleteMany() 方法用于删除所有匹配过滤器的文档
 
 ```java
 db.collection.deleteMany(filter, options)
-    
-db.myCollection.deleteMany({ status: "inactive" });
+
+//案例
+Document query = new Document().append("name", "luosong");
+collection.deleteMany(query);
 ```
 
 **findOneAndDelete()**
@@ -983,9 +1011,9 @@ db.myCollection.findOne(
 
 + **使用比较操作符**
 
-​		MongoDB 支持多种比较操作符，如 **$gt、$lt、$gte、$lte、$eq、$ne** 等
+		MongoDB 支持多种比较操作符，如 **$gt、$lt、$gte、$lte、$eq、$ne** 等
 
-​	**案例-查找年龄大于 25 的文档**
+	**案例-查找年龄大于 25 的文档**
 
 ```java
 db.myCollection.find({ age: { $gt: 25 } });
@@ -993,15 +1021,15 @@ db.myCollection.find({ age: { $gt: 25 } });
 
 + **使用逻辑操作符**
 
-​		MongoDB 支持多种逻辑操作符，如 **$and、$or、$not、$nor** 等
-
-​		**案例-查询键 by 值为 菜鸟教程 或键 title 值为 MongoDB 教程 的文档**
+		MongoDB 支持多种逻辑操作符，如 **$and、$or、$not、$nor** 等
+		
+		**案例-查询键 by 值为 菜鸟教程 或键 title 值为 MongoDB 教程 的文档**
 
 ```java
 db.col.find({$or:[{"by":"菜鸟教程"},{"title": "MongoDB 教程"}]}).pretty()
 ```
 
-​		**案例-查找年龄大于 25 且城市为 "New York" 的文档**
+		**案例-查找年龄大于 25 且城市为 "New York" 的文档**
 
 ```java
 db.myCollection.find({
@@ -1012,7 +1040,7 @@ db.myCollection.find({
 });
 ```
 
-​		**案例-演示 AND 和 OR 联合使用，类似常规 SQL 语句为： 'where likes>50 AND (by = '菜鸟教程' OR title = 'MongoDB 教程')'**
+		**案例-演示 AND 和 OR 联合使用，类似常规 SQL 语句为： 'where likes>50 AND (by = '菜鸟教程' OR title = 'MongoDB 教程')'**
 
 ```java
 >db.col.find({"likes": {$gt:50}, $or: [{"by": "菜鸟教程"},{"title": "MongoDB 教程"}]}).pretty()
@@ -1033,9 +1061,9 @@ db.myCollection.find({
 
 + **使用正则表达式**
 
-​		可以使用正则表达式进行模式匹配查询
-
-​		**案例-查找名字以 "A" 开头的文档**
+		可以使用正则表达式进行模式匹配查询
+		
+		**案例-查找名字以 "A" 开头的文档**
 
 ```java
 db.myCollection.find({ name: /^A/ });
@@ -1043,9 +1071,9 @@ db.myCollection.find({ name: /^A/ });
 
 + **投影**
 
-​		投影用于控制查询结果中返回的字段。可以使用包含字段和排除字段两种方式
-
-​		**案例-只返回名字和年龄字段**
+		投影用于控制查询结果中返回的字段。可以使用包含字段和排除字段两种方式
+		
+		**案例-只返回名字和年龄字段**
 
 ```java
 db.myCollection.find(
@@ -1056,9 +1084,9 @@ db.myCollection.find(
 
 + **排序**
 
-​		可以对查询结果进行排序
-
-​		**案例-按年龄降序排序**
+		可以对查询结果进行排序
+		
+		**案例-按年龄降序排序**
 
 ```java
 db.myCollection.find().sort({ age: -1 });
@@ -1066,21 +1094,21 @@ db.myCollection.find().sort({ age: -1 });
 
 + **限制与跳过**
 
-​		可以对查询结果进行限制和跳过指定数量的文档。
-
-​		**案例-返回前 10 个文档**
+		可以对查询结果进行限制和跳过指定数量的文档。
+		
+		**案例-返回前 10 个文档**
 
 ```java
 db.myCollection.find().limit(10);
 ```
 
-​		**案例-跳过前 5 个文档，返回接下来的 10 个文档**
+		**案例-跳过前 5 个文档，返回接下来的 10 个文档**
 
 ```java
 db.myCollection.find().skip(5).limit(10);
 ```
 
-​		**案例-查找年龄大于 25 且城市为 "New York" 的文档，只返回名字和年龄字段，按年龄降序排序，并返回前 10 个文档**
+		**案例-查找年龄大于 25 且城市为 "New York" 的文档，只返回名字和年龄字段，按年龄降序排序，并返回前 10 个文档**
 
 ```java
 db.myCollection.find(
@@ -1096,15 +1124,15 @@ db.myCollection.find(
 
 + **$type 操作符**
 
-​		**$type** 操作符用于查询字段的 BSON 数据类型，它允许您指定一个或多个类型，并返回匹配这些类型的文档
+		**$type** 操作符用于查询字段的 BSON 数据类型，它允许您指定一个或多个类型，并返回匹配这些类型的文档
 
 ```java
 db.collection.find({ field: { $type: <type> } })
 ```
 
-​		**field**：要检查类型的字段
-
-​		**type**：指定的 BSON 类型，可以是类型的数字代码或类型名称的字符串
+		**field**：要检查类型的字段
+	
+		**type**：指定的 BSON 类型，可以是类型的数字代码或类型名称的字符串
 
 **常见的 BSON 类型及其对应的数字代码和字符串名称**
 
@@ -1148,9 +1176,9 @@ db.myCollection.find({ value: { $type: [2, 16] } })
 
 + **Limit 与 Skip 方法**
 
-​		limit() 方法用于限制查询结果返回的文档数量，而 skip() 方法用于跳过指定数量的文档。这两个方法通常一起使用，可以用来实现分页查询或在大型数据集上进行分批处理
-
-​		limit() 方法基本语法如下所示
+		limit() 方法用于限制查询结果返回的文档数量，而 skip() 方法用于跳过指定数量的文档。这两个方法通常一起使用，可以用来实现分页查询或在大型数据集上进行分批处理
+		
+		limit() 方法基本语法如下所示
 
 ```java
 db.collection.find().limit(<limit>)
@@ -1159,7 +1187,7 @@ db.collection.find().limit(<limit>)
 db.myCollection.find().limit(10);    
 ```
 
-​		skip() 方法语法格式如下
+		skip() 方法语法格式如下
 
 ```java
 db.collection.find().skip(<skip>)
@@ -1168,7 +1196,7 @@ db.collection.find().skip(<skip>)
 db.myCollection.find().skip(10).limit(10);    
 ```
 
-​		**案例-分页查询**
+		**案例-分页查询**
 
 ```java
 // 第一页，每页 10 个文档
@@ -1736,3 +1764,292 @@ db.myCollection.find().sort({ age: 1, createdAt: -1 });
 >
 > - MongoDB 在执行排序时会对查询结果进行排序，因此可能会影响性能，特别是在大型数据集上排序操作可能会较慢
 > - 如果排序字段上有索引，排序操作可能会更高效。在执行频繁的排序操作时，可以考虑创建适当的索引以提高性能
+
+
+
+熟练使用项目
+
+官方文档
+
+
+
+
+
+
+
+pom文件结构
+
+### 什么是POM文件？
+
+POM（Project Object Model）文件是Maven项目的核心文件之一。它是一个XML文件，描述了项目的基本信息、依赖项、构建和发布等信息。POM文件是Maven的重要组成部分，可以帮助开发者管理和构建项目。在使用Maven进行项目构建时，需要根据项目的需要配置POM文件
+
+### POM文件的基本结构
+
+POM文件是一个XML文件，包含多个元素，每个元素代表一个特定的配置项。下面是一个POM文件的基本结构
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>example-project</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <dependencies>
+        <!-- 依赖项配置 -->
+    </dependencies>
+
+    <build>
+        <!-- 构建配置 -->
+    </build>
+
+    <repositories>
+        <!-- 仓库配置 -->
+    </repositories>
+</project>
+```
+
+## POM文件的常用配置项
+
+### 坐标信息
+
+坐标信息指的是<groupId>、<artifactId>和<version>元素。<groupId>定义了项目的组织ID，<artifactId>定义了项目的唯一标识符，<version>定义了项目的版本号。这些信息对于Maven的依赖管理和构建过程非常重要
+
+```xml
+<groupId>com.example</groupId>
+<artifactId>example-project</artifactId>
+<version>1.0-SNAPSHOT</version>
+```
+
+### 依赖项配置
+
+依赖项配置用于定义项目所依赖的外部库。Maven会自动下载并管理这些依赖项。依赖项配置包含在<dependencies>元素中，每个依赖项使用一个<dependency>元素进行描述
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-core</artifactId>
+        <version>5.3.13</version>
+    </dependency>
+</dependencies>
+```
+
+>  dependencies与dependencyManagement的区别
+>
+> **dependencyment**
+>
+> 在我们项目中，我们会发现在父模块的pom文件中常常会出现dependencyMent元素，这是因为我们可以通过其来管理子模块的版本号，也就是说我们在父模块中声明号依赖的版本，但是并不实现引入；
+>
+> **dependencies**
+>
+> 上面说到dependencyment只是声明一个依赖，而不实现引入，故我们在子模块中也需要对依赖进行声明，倘若不声明子模块自己的依赖，是不会从父模块中继承的；只有子模块中也声明了依赖。并且没有写对应的版本号它才会从父类中继承；并且version和scope都是取自父类；此外要是子模块中自己定义了自己的版本号，是不会继承自父类的
+>
+> **总结**
+>
+> dependencyment只是用来管理依赖，规定未添加版本号的子模块依赖继承自它，dependencies是用来声明子模块自己的依赖，可以在其中来写自己需要的版本号；
+
+### 构建配置
+
+构建配置用于定义项目的构建过程。它包含在<build>元素中，包括了多个子元素。其中比较常用的子元素有
+
+```xml
+<build>
+    <plugins>
+        <!-- 插件配置 -->
+    </plugins>
+    <resources>
+        <!-- 资源文件配置 -->
+    </resources>
+    <testResources>
+        <!-- 测试资源文件配置 -->
+    </testResources>
+</build>
+```
+
+### 插件配置
+
+插件是Maven的一个重要特性，它可以用于扩展Maven的功能。Maven自带了一些插件，比如maven-compiler-plugin、maven-jar-plugin等。插件配置包含在<plugins>元素中，每个插件使用一个<plugin>元素进行描述
+
+```xml
+<plugins>
+    <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+            <source>1.8</source>
+            <target>1.8</target>
+        </configuration>
+    </plugin>
+</plugins>
+```
+
+### 仓库配置
+
+仓库配置用于定义Maven的依赖项下载地址。Maven默认使用中央仓库，但是也可以配置私有仓库或者本地仓库。仓库配置包含在<repositories>元素中，每个仓库使用一个<repository>元素进行描述
+
+```xml
+<repositories>
+    <repository>
+        <id>central</id>
+        <url>https://repo.maven.apache.org/maven2</url>
+    </repository>
+</repositories>
+```
+
+# 父子 POM 示例
+
+**Maven 父 POM** （或超级 POM）用于构造项目，以**避免重复或重复使用 pom 文件之间的\*继承配置\***。 它有助于长期轻松维护。
+
+如果在父 POM 和子 POM 中都使用不同的值配置了任何依赖项或属性，则子 POM 值将具有优先级
+
+## 父 POM 内容
+
+可以使用包`pom`声明父 POM。 它不打算分发，因为仅从其他项目中引用了它。
+
+Maven 父 pom 可以包含几乎所有内容，并且可以继承到子 pom 文件中，例如：
+
+*   通用数据 – 开发人员的姓名，SCM 地址，分发管理等
+*   常数 – 例如版本号
+*   共同的依赖项 – 所有子项共同的。 与在单个 pom 文件中多次写入它们具有相同的效果。
+*   属性 – 例如插件，声明，执行和 ID。
+*   配置
+*   资源
+
+## 父 POM 和子 POM 示例
+
+为了匹配父 POM，Maven 使用两个规则：
+
+1.  在项目的根目录或给定的相对路径中有一个 pom 文件。
+2.  子 POM 文件中的引用包含与父 POM 文件中所述相同的坐标。
+
+#### 父 POM
+
+此处，父 POM 为 JUnit 和 spring 框架配置了基本项目信息和两个[依赖项](//howtodoinjava.com/maven/maven-dependency-management/)。
+
+```java
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd;
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.howtodoinjava.demo</groupId>
+	<artifactId>MavenExamples</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
+
+	<name>MavenExamples Parent</name>
+	<url>http://maven.apache.org</url>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<junit.version>3.8.1</junit.version>
+		<spring.version>4.3.5.RELEASE</spring.version>
+	</properties>
+
+	<dependencies>
+
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>${junit.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-core</artifactId>
+			<version>${spring.version}</version>
+		</dependency>
+
+	</dependencies>
+</project>
+
+```
+
+#### 子 POM
+
+现在，子 POM 需要使用`parent`标签并指定`groupId/artifactId/version`属性来引用父 POM。 这个 pom 文件将从父 POM 继承所有属性和依赖项，并且还可以包括子项目特定的依赖项。
+
+```java
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+	<!--The identifier of the parent POM-->
+	<parent>
+		<groupId>com.howtodoinjava.demo</groupId>
+		<artifactId>MavenExamples</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+	</parent>
+
+	<modelVersion>4.0.0</modelVersion>
+	<artifactId>MavenExamples</artifactId>
+	<name>MavenExamples Child POM</name>
+	<packaging>jar</packaging>
+
+	<dependencies>		
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-security</artifactId>
+			<version>${spring.version}</version>
+		</dependency>
+	</dependencies>
+
+</project>
+
+```
+
+## 父 POM 相对路径
+
+默认情况下，Maven 首先在项目的根目录下查找父 POM，然后在本地仓库中查找，最后在远程仓库中查找。 如果父 POM 文件不在任何其他位置，则可以使用代码标签。 该**相对路径应相对于项目根**。
+
+如果未明确给出相对路径，则默认为`..`，即当前项目的父目录中的 pom。
+
+```java
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+	<!--The identifier of the parent POM-->
+	<parent>
+		<groupId>com.howtodoinjava.demo</groupId>
+		<artifactId>MavenExamples</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+		<relativePath>../baseapp/pom.xml</relativePath>
+	</parent>
+
+	<modelVersion>4.0.0</modelVersion>
+	<artifactId>MavenExamples</artifactId>
+	<name>MavenExamples Child POM</name>
+	<packaging>jar</packaging>
+
+</project>
+```
+
+# maven修改镜像地址
+
+在maven中的conf文件中，找到settings.xml文件，将文件中的 mirrors 标签中 添加如下代码，即可将镜像地址改成其他，加快下载速度
+
+```xml
+<mirror>
+     <id>alimaven</id>
+     <name>aliyun maven</name>
+     <url>http://maven.aliyun.com/nexus/content/groups/public/</url>
+     <mirrorOf>central</mirrorOf>
+</mirror>
+```
+
+
+
+
+
+
+
+
+
+MongoClients是怎么实现MongoClient的
