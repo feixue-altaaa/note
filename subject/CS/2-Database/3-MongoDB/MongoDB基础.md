@@ -68,7 +68,9 @@ MongoDB 支持[多种存储引擎：](https://www.mongodb.com/zh-cn/docs/manual/
 + 安装Mongoshell，**MongoDB6之前shell是直接在里面的6之后需要单独下载**
   + [Mongoshell下载地址](https://www.mongodb.com/try/download/shell)
   + 下载后解压到mongo的安装路径下
-+ 配置bin目录到环境变量中
++ 配置bin目录到环境变量中--直接添加到path中即可
+  
++ 
   + ![image-20240725142505188](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202407251425239.png)
 
 + [nosqlbooster下载地址](https://nosqlbooster.com/downloads)
@@ -1767,6 +1769,16 @@ db.myCollection.find().sort({ age: 1, createdAt: -1 });
 
 
 
+
+
+
+
+
+
+
+
+
+
 熟练使用项目
 
 官方文档
@@ -1812,6 +1824,12 @@ POM文件是一个XML文件，包含多个元素，每个元素代表一个特�
     </repositories>
 </project>
 ```
+
+
+
+
+
+
 
 ## POM文件的常用配置项
 
@@ -2053,3 +2071,40 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/ma
 
 
 MongoClients是怎么实现MongoClient的
+
+
+
+
+
+
+
+```java
+  @Test
+    void testPerson(){
+        Person person = new Person("123","123","123",123,new ArrayList<>(),new ArrayList<>());
+
+        personService.save(person);
+
+        for (Person person1 : personService.getByPersonAge(1, 1000)) {
+            System.out.println(person1);
+        }
+
+    }
+```
+
+```xml
+
+spring.data.mongodb.authentication-database=admin
+spring.data.mongodb.username=user123
+spring.data.mongodb.password=pass123
+spring.data.mongodb.database=admin
+spring.data.mongodb.port=27017
+spring.data.mongodb.host=localhost
+
+spring.mvc.pathmatch.matching-strategy = ANT_PATH_MATCHER
+
+spring.servlet.multipart.max-file-size=256MB
+spring.servlet.multipart.max-request-size=256MB
+spring.servlet.multipart.enabled=true
+```
+
