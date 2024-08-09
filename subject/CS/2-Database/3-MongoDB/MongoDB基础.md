@@ -2796,3 +2796,18 @@ public final boolean compareAndSet(int expectedValue, int newValue) {
 #### getAndAddInt 自旋方法
 
 由于compareAndSwapInt方法的乐观锁特性，会存在对value修改失败的情况，但是有些时候对value的更新必须要成功，比如调用incrementAndGet、addAndGet等方法，本节就来分析一下addAndGet方法的实现
+
+```java
+ @HotSpotIntrinsicCandidate
+    public final int getAndAddInt(Object o, long offset, int delta) {
+        int v;
+        do {
+            v = getIntVolatile(o, offset);//1
+        } while (!weakCompareAndSetInt(o, offset, v, v + delta));//2
+        return v;
+    }
+```
+
+在 getAndAddInt 方法中有一个知道型 do .. while 循环语句，首先在注释 1 处获取当前被 volatile 关键字修饰的 value 值
+在 注释 2 处执行 compareAndSwapInt 方法如果执行成功则返回，如果执行失败则再次执行下一轮的 compareAndSwapInt 方法，直到成功
+
