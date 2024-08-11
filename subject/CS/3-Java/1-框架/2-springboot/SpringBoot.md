@@ -6111,9 +6111,851 @@ void testSearch() throws IOException {
    2. 手工管理客户端对象，包括初始化和关闭操作
    3. 使用High Level Client根据操作的种类不同，选择不同的Request对象完成对应操作
 
-## 整合第三方技术
+## 监控
 
-### 缓存
+- 在说监控之前，需要回顾一下软件业的发展史。最早的软件完成一些非常简单的功能，代码不多，错误也少。随着软件功能的逐步完善，软件的功能变得越来越复杂，功能不能得到有效的保障，这个阶段出现了针对软件功能的检测，也就是软件测试。伴随着计算机操作系统的逐步升级，软件的运行状态也变得开始让人捉摸不透，出现了不稳定的状况。伴随着计算机网络的发展，程序也从单机状态切换成基于计算机网络的程序，应用于网络的程序开始出现，由于网络的不稳定性，程序的运行状态让使用者更加堪忧。互联网的出现彻底打破了软件的思维模式，随之而来的互联网软件就更加凸显出应对各种各样复杂的网络情况之下的弱小。计算机软件的运行状况已经成为了软件运行的一个大话题，针对软件的运行状况就出现了全新的思维，建立起了初代的软件运行状态监控
+
+- 什么是监控？就是通过软件的方式展示另一个软件的运行情况，运行的情况则通过各种各样的指标数据反馈给监控人员。例如网络是否顺畅、服务器是否在运行、程序的功能是否能够整百分百运行成功，内存是否够用，等等等等
+
+- 本章要讲解的监控就是对软件的运行情况进行监督，但是springboot程序与非springboot程序的差异还是很大的，为了方便监控软件的开发，springboot提供了一套功能接口，为开发者加速开发过程
+
+
+### 监控的意义
+
+- 对于现代的互联网程序来说，规模越来越大，功能越来越复杂，还要追求更好的客户体验，因此要监控的信息量也就比较大了。由于现在的互联网程序大部分都是基于微服务的程序，一个程序的运行需要若干个服务来保障，因此第一个要监控的指标就是服务是否正常运行，也就是**监控服务状态是否处理宕机状态**。一旦发现某个服务宕机了，必须马上给出对应的解决方案，避免整体应用功能受影响
+- 其次，由于互联网程序服务的客户量是巨大的，当客户的请求在短时间内集中达到服务器后，就会出现各种程序运行指标的波动。比如内存占用严重，请求无法及时响应处理等，这就是第二个要监控的重要指标，**监控服务运行指标**
+- 虽然软件是对外提供用户的访问需求，完成对应功能的，但是后台的运行是否平稳，是否出现了不影响客户使用的功能隐患，这些也是要密切监控的，此时就需要在不停机的情况下，监控系统运行情况，日志是一个不错的手段。如何在众多日志中找到开发者或运维人员所关注的日志信息，简单快速有效的过滤出要看的日志也是监控系统需要考虑的问题，这就是第三个要监控的指标，**监控程序运行日志**
+- 虽然我们期望程序一直平稳运行，但是由于突发情况的出现，例如服务器被攻击、服务器内存溢出等情况造成了服务器宕机，此时当前服务不能满足使用需要，就要将其重启甚至关闭，如果快速控制服务器的启停也是程序运行过程中不可回避的问题，这就是第四个监控项，**管理服务状态**
+- 以上这些仅仅是从大的方面来思考监控这个问题，还有很多的细节点，例如上线了一个新功能，定时提醒用户续费，这种功能不是上线后马上就运行的，但是当前功能是否真的启动，如果快速的查询到这个功能已经开启，这也是监控中要解决的问题，等等。看来监控真的是一项非常重要的工作
+- 通过上述描述，可以看出监控很重要。那具体的监控要如何开展呢？还要从实际的程序运行角度出发。比如现在有3个服务支撑着一个程序的运行，每个服务都有自己的运行状态，此时被监控的信息就要在三个不同的程序中去查询并展示，但是三个服务是服务于一个程序的运行的，如果不能合并到一个平台上展示，监控工作量巨大，而且信息对称性差，要不停的在三个监控端查看数据。如果将业务放大成30个，300个，3000个呢？看来必须有一个单独的平台，将多个被监控的服务对应的监控指标信息汇总在一起，这样更利于监控工作的开展
+- 新的程序专门用来监控，新的问题就出现了，是被监控程序主动上报信息还是监控程序主动获取信息？如果监控程序不能主动获取信息，这就意味着监控程序有可能看到的是很久之前被监控程序上报的信息，万一被监控程序宕机了，监控程序就无法区分究竟是好久没法信息了，还是已经下线了。所以监控程序必须具有主动发起请求获取被监控服务信息的能力
+- 如果监控程序要监控服务时，主动获取对方的信息。那监控程序如何知道哪些程序被自己监控呢？不可能在监控程序中设置我监控谁，这样互联网上的所有程序岂不是都可以被监控到，这样的话信息安全将无法得到保障。合理的做法只能是在被监控程序启动时上报监控程序，告诉监控程序你可以监控我了。看来需要在被监控程序端做主动上报的操作，这就要求被监控程序中配置对应的监控程序是谁
+- 被监控程序可以提供各种各样的指标数据给监控程序看，但是每一个指标都代表着公司的机密信息，并不是所有的指标都可以给任何人看的，乃至运维人员，所以对被监控指标的是否开放出来给监控系统看，也需要做详细的设定
+- 以上描述的整个过程就是一个监控系统的基本流程
+
+
+**总结**
+
+- 监控是一个非常重要的工作，是保障程序正常运行的基础手段
+- 监控的过程通过一个监控程序进行，它汇总所有被监控的程序的信息集中统一展示
+- 被监控程序需要主动上报自己被监控，同时要设置哪些指标被监控
+
+**思考**
+
++ 下面就要开始做监控了，新的问题就来了，监控程序怎么做呢？难道要自己写吗？肯定是不现实的，如何进行监控，咱们下节再讲
+
+### 可视化监控平台
+
+- springboot抽取了大部分监控系统的常用指标，提出了监控的总思想。然后就有好心的同志根据监控的总思想，制作了一个通用性很强的监控系统，因为是基于springboot监控的核心思想制作的，所以这个程序被命名为**Spring Boot Admin**
+
+- Spring Boot Admin，这是一个开源社区项目，用于管理和监控SpringBoot应用程序。这个项目中包含有客户端和服务端两部分，而监控平台指的就是服务端。我们做的程序如果需要被监控，将我们做的程序制作成客户端，然后配置服务端地址后，服务端就可以通过HTTP请求的方式从客户端获取对应的信息，并通过UI界面展示对应信
+
+- 下面就来开发这套监控程序，先制作服务端，其实服务端可以理解为是一个web程序，收到一些信息后展示这些信息
+
+
+**服务端开发**
+
+**步骤①**：导入springboot admin对应的starter，版本与当前使用的springboot版本保持一致，并将其配置成web工程
+
+```xml
+<dependency>
+    <groupId>de.codecentric</groupId>
+    <artifactId>spring-boot-admin-starter-server</artifactId>
+    <version>2.5.4</version>
+</dependency>
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+```
+
++ 上述过程可以通过创建项目时使用勾选的形式完成
+
+**步骤②**：在引导类上添加注解@EnableAdminServer，声明当前应用启动后作为SpringBootAdmin的服务器使用
+
+```java
+@SpringBootApplication
+@EnableAdminServer
+public class Springboot25AdminServerApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(Springboot25AdminServerApplication.class, args);
+    }
+}
+```
+
++ 做到这里，这个服务器就开发好了，启动后就可以访问当前程序了，界面如下
+
++ 由于目前没有启动任何被监控的程序，所以里面什么信息都没有。下面制作一个被监控的客户端程序
+
+**客户端开发**
+
++ 客户端程序开发其实和服务端开发思路基本相似，多了一些配置而已
+
+**步骤①**：导入springboot admin对应的starter，版本与当前使用的springboot版本保持一致，并将其配置成web工程
+
+```xml
+<dependency>
+    <groupId>de.codecentric</groupId>
+    <artifactId>spring-boot-admin-starter-client</artifactId>
+    <version>2.5.4</version>
+</dependency>
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+```
+
++ 上述过程也可以通过创建项目时使用勾选的形式完成，不过一定要小心，端口配置成不一样的，否则会冲突
+
+**步骤②**：设置当前客户端将信息上传到哪个服务器上，通过yml文件配置
+
+```yaml
+spring:
+  boot:
+    admin:
+      client:
+        url: http://localhost:8080
+```
+
+- 做到这里，这个客户端就可以启动了。启动后再次访问服务端程序，界面如下
+
+- 可以看到，当前监控了1个程序，点击进去查看详细信息
+
+- 由于当前没有设置开放哪些信息给监控服务器，所以目前看不到什么有效的信息。下面需要做两组配置就可以看到信息了
+
+  - 开放指定信息给服务器看
+
+
+  - 允许服务器以HTTP请求的方式获取对应的信息
+
+    配置如下
+
+
+```yaml
+server:
+  port: 80
+spring:
+  boot:
+    admin:
+      client:
+        url: http://localhost:8080
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+```
+
+- 上述配置对于初学者来说比较容易混淆。简单解释一下，到下一节再做具体的讲解。springbootadmin的客户端默认开放了13组信息给服务器，但是这些信息除了一个之外，其他的信息都不让通过HTTP请求查看。所以你看到的信息基本上就没什么内容了，只能看到一个内容，就是下面的健康信息
+- 但是即便如此我们看到健康信息中也没什么内容，原因在于健康信息中有一些信息描述了你当前应用使用了什么技术等信息，如果无脑的对外暴露功能会有安全隐患。通过配置就可以开放所有的健康信息明细查看了
+
+```yaml
+management:
+  endpoint:
+    health:
+      show-details: always
+```
+
+- 健康明细信息如下
+- 目前除了健康信息，其他信息都查阅不了。原因在于其他12种信息是默认不提供给服务器通过HTTP请求查阅的，所以需要开启查阅的内容项，使用*表示查阅全部。记得带引号
+
+```yaml
+endpoints:
+  web:
+    exposure:
+      include: "*"
+```
+
+- 配置后再刷新服务器页面，就可以看到所有的信息了
+- 以上界面中展示的信息量就非常大了，包含了13组信息，有性能指标监控，加载的bean列表，加载的系统属性，日志的显示控制等等
+
+**配置多个客户端**
+
+可以通过配置客户端的方式在其他的springboot程序中添加客户端坐标，这样当前服务器就可以监控多个客户端程序了。每个客户端展示不同的监控信息进入监控面板，如果你加载的应用具有功能，在监控面板中可以看到3组信息展示的与之前加载的空工程不一样
+
+- 类加载面板中可以查阅到开发者自定义的类，如左图
+
+- 映射中可以查阅到当前应用配置的所有请求
+
+- 性能指标中可以查阅当前应用独有的请求路径统计数据
+
+**总结**
+
+- 开发监控服务端需要导入坐标，然后在引导类上添加注解@EnableAdminServer，并将其配置成web程序即可
+- 开发被监控的客户端需要导入坐标，然后配置服务端服务器地址，并做开放指标的设定即可
+- 在监控平台中可以查阅到各种各样被监控的指标，前提是客户端开放了被监控的指标
+
+**思考**
+
++ 之前说过，服务端要想监控客户端，需要主动的获取到对应信息并展示出来。但是目前我们并没有在客户端开发任何新的功能，但是服务端确可以获取监控信息，谁帮我们做的这些功能呢？咱们下一节再讲
+
+### 监控原理
+
++ 通过查阅监控中的映射指标，可以看到当前系统中可以运行的所有请求路径，其中大部分路径以/actuator开头
+
+- 首先这些请求路径不是开发者自己编写的，其次这个路径代表什么含义呢？既然这个路径可以访问，就可以通过浏览器发送该请求看看究竟可以得到什么信息
+- 通过发送请求，可以得到一组json信息，如下
+
+```json
+{
+    "_links": {
+        "self": {
+            "href": "http://localhost:81/actuator",
+            "templated": false
+        },
+        "beans": {
+            "href": "http://localhost:81/actuator/beans",
+            "templated": false
+        },
+        "caches-cache": {
+            "href": "http://localhost:81/actuator/caches/{cache}",
+            "templated": true
+        },
+        "caches": {
+            "href": "http://localhost:81/actuator/caches",
+            "templated": false
+        },
+        "health": {
+            "href": "http://localhost:81/actuator/health",
+            "templated": false
+        },
+        "health-path": {
+            "href": "http://localhost:81/actuator/health/{*path}",
+            "templated": true
+        },
+        "info": {
+            "href": "http://localhost:81/actuator/info",
+            "templated": false
+        },
+        "conditions": {
+            "href": "http://localhost:81/actuator/conditions",
+            "templated": false
+        },
+        "shutdown": {
+            "href": "http://localhost:81/actuator/shutdown",
+            "templated": false
+        },
+        "configprops": {
+            "href": "http://localhost:81/actuator/configprops",
+            "templated": false
+        },
+        "configprops-prefix": {
+            "href": "http://localhost:81/actuator/configprops/{prefix}",
+            "templated": true
+        },
+        "env": {
+            "href": "http://localhost:81/actuator/env",
+            "templated": false
+        },
+        "env-toMatch": {
+            "href": "http://localhost:81/actuator/env/{toMatch}",
+            "templated": true
+        },
+        "loggers": {
+            "href": "http://localhost:81/actuator/loggers",
+            "templated": false
+        },
+        "loggers-name": {
+            "href": "http://localhost:81/actuator/loggers/{name}",
+            "templated": true
+        },
+        "heapdump": {
+            "href": "http://localhost:81/actuator/heapdump",
+            "templated": false
+        },
+        "threaddump": {
+            "href": "http://localhost:81/actuator/threaddump",
+            "templated": false
+        },
+        "metrics-requiredMetricName": {
+            "href": "http://localhost:81/actuator/metrics/{requiredMetricName}",
+            "templated": true
+        },
+        "metrics": {
+            "href": "http://localhost:81/actuator/metrics",
+            "templated": false
+        },
+        "scheduledtasks": {
+            "href": "http://localhost:81/actuator/scheduledtasks",
+            "templated": false
+        },
+        "mappings": {
+            "href": "http://localhost:81/actuator/mappings",
+            "templated": false
+        }
+    }
+}
+```
+
++ 其中每一组数据都有一个请求路径，而在这里请求路径中有之前看到过的health，发送此请求又得到一组信息
+
+```JSON
+{
+    "status": "UP",
+    "components": {
+        "diskSpace": {
+            "status": "UP",
+            "details": {
+                "total": 297042808832,
+                "free": 72284409856,
+                "threshold": 10485760,
+                "exists": true
+            }
+        },
+        "ping": {
+            "status": "UP"
+        }
+    }
+}
+```
+
+- 当前信息与监控面板中的数据存在着对应关系
+- 原来监控中显示的信息实际上是通过发送请求后得到json数据，然后展示出来。按照上述操作，可以发送更多的以/actuator开头的链接地址，获取更多的数据，这些数据汇总到一起组成了监控平台显示的所有数据
+- 到这里我们得到了一个核心信息，监控平台中显示的信息实际上是通过对被监控的应用发送请求得到的。那这些请求谁开发的呢？打开被监控应用的pom文件，其中导入了springboot admin的对应的client，在这个资源中导入了一个名称叫做actuator的包。被监控的应用之所以可以对外提供上述请求路径，就是因为添加了这个包
+
+- 这个actuator是什么呢？这就是本节要讲的核心内容，监控的端点
+- Actuator，可以称为端点，描述了一组监控信息，SpringBootAdmin提供了多个内置端点，通过访问端点就可以获取对应的监控信息，也可以根据需要自定义端点信息。通过发送请求路劲**/actuator**可以访问应用所有端点信息，如果端点中还有明细信息可以发送请求**/actuator/端点名称**来获取详细信息。以下列出了所有端点信息说明
+
+| ID               | 描述                                                         | 默认启用 |
+| ---------------- | ------------------------------------------------------------ | -------- |
+| auditevents      | 暴露当前应用程序的审计事件信息。                             | 是       |
+| beans            | 显示应用程序中所有 Spring bean 的完整列表。                  | 是       |
+| caches           | 暴露可用的缓存。                                             | 是       |
+| conditions       | 显示在配置和自动配置类上评估的条件以及它们匹配或不匹配的原因。 | 是       |
+| configprops      | 显示所有 @ConfigurationProperties 的校对清单。               | 是       |
+| env              | 暴露 Spring ConfigurableEnvironment 中的属性。               | 是       |
+| flyway           | 显示已应用的 Flyway 数据库迁移。                             | 是       |
+| health           | 显示应用程序健康信息                                         | 是       |
+| httptrace        | 显示 HTTP 追踪信息（默认情况下，最后 100 个  HTTP 请求/响应交换）。 | 是       |
+| info             | 显示应用程序信息。                                           | 是       |
+| integrationgraph | 显示 Spring Integration 图。                                 | 是       |
+| loggers          | 显示和修改应用程序中日志记录器的配置。                       | 是       |
+| liquibase        | 显示已应用的 Liquibase 数据库迁移。                          | 是       |
+| metrics          | 显示当前应用程序的指标度量信息。                             | 是       |
+| mappings         | 显示所有 @RequestMapping 路径的整理清单。                    | 是       |
+| scheduledtasks   | 显示应用程序中的调度任务。                                   | 是       |
+| sessions         | 允许从 Spring Session 支持的会话存储中检索和删除用户会话。当使用 Spring Session 的响应式 Web 应用程序支持时不可用。 | 是       |
+| shutdown         | 正常关闭应用程序。                                           | 否       |
+| threaddump       | 执行线程 dump。                                              | 是       |
+| heapdump         | 返回一个 hprof 堆 dump 文件。                                | 是       |
+| jolokia          | 通过 HTTP 暴露 JMX bean（当  Jolokia 在 classpath 上时，不适用于 WebFlux）。 | 是       |
+| logfile          | 返回日志文件的内容（如果已设置 logging.file 或 logging.path 属性）。支持使用 HTTP Range 头来检索部分日志文件的内容。 | 是       |
+| prometheus       | 以可以由 Prometheus 服务器抓取的格式暴露指标。               | 是       |
+
++ 上述端点每一项代表被监控的指标，如果对外开放则监控平台可以查询到对应的端点信息，如果未开放则无法查询对应的端点信息。通过配置可以设置端点是否对外开放功能。使用enable属性控制端点是否对外开放。其中health端点为默认端点，不能关闭
+
+```yaml
+management:
+  endpoint:
+    health:						# 端点名称
+      show-details: always
+    info:						# 端点名称
+      enabled: true				# 是否开放
+```
+
++ 为了方便开发者快速配置端点，springboot admin设置了13个较为常用的端点作为默认开放的端点，如果需要控制默认开放的端点的开放状态，可以通过配置设置，如下
+
+```YAML
+management:
+  endpoints:
+    enabled-by-default: true	# 是否开启默认端点，默认值true
+```
+
++ 上述端点开启后，就可以通过端点对应的路径查看对应的信息了。但是此时还不能通过HTTP请求查询此信息，还需要开启通过HTTP请求查询的端点名称，使用“*”可以简化配置成开放所有端点的WEB端HTTP请求权限
+
+```YAML
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+```
+
++ 整体上来说，对于端点的配置有两组信息，一组是endpoints开头的，对所有端点进行配置，一组是endpoint开头的，对具体端点进行配置
+
+```YAML
+management:
+  endpoint:		# 具体端点的配置
+    health:
+      show-details: always
+    info:
+      enabled: true
+  endpoints:	# 全部端点的配置
+    web:
+      exposure:
+        include: "*"
+    enabled-by-default: true
+```
+
+**总结**
+
+- 被监控客户端通过添加actuator的坐标可以对外提供被访问的端点功能
+
+- 端点功能的开放与关闭可以通过配置进行控制
+
+- web端默认无法获取所有端点信息，通过配置开放端点功能
+
+
+### 自定义监控指标
+
++ 端点描述了被监控的信息，除了系统默认的指标，还可以自行添加显示的指标，下面就通过3种不同的端点的指标自定义方式来学习端点信息的二次开发
+
+**INFO端点**
+
++ info端点描述了当前应用的基本信息，可以通过两种形式快速配置info端点的信息
+
+- 配置形式
+
+  在yml文件中通过设置info节点的信息就可以快速配置端点信息
+
+  ```yaml
+  info:
+    appName: @project.artifactId@
+    version: @project.version@
+    company: 传智教育
+    author: itheima
+  ```
+
+  配置完毕后，对应信息显示在监控平台上
+
+  也可以通过请求端点信息路径获取对应json信息
+
+- 编程形式
+
+  通过配置的形式只能添加固定的数据，如果需要动态数据还可以通过配置bean的方式为info端点添加信息，此信息与配置信息共存
+
+  ```JAVA
+  @Component
+  public class InfoConfig implements InfoContributor {
+      @Override
+      public void contribute(Info.Builder builder) {
+          builder.withDetail("runTime",System.currentTimeMillis());		//添加单个信息
+          Map infoMap = new HashMap();		
+          infoMap.put("buildTime","2006");
+          builder.withDetails(infoMap);									//添加一组信息
+      }
+  }
+  ```
+
+**Health端点**
+
++ health端点描述当前应用的运行健康指标，即应用的运行是否成功。通过编程的形式可以扩展指标信息
+
+```JAVA
+@Component
+public class HealthConfig extends AbstractHealthIndicator {
+    @Override
+    protected void doHealthCheck(Health.Builder builder) throws Exception {
+        boolean condition = true;
+        if(condition) {
+            builder.status(Status.UP);					//设置运行状态为启动状态
+            builder.withDetail("runTime", System.currentTimeMillis());
+            Map infoMap = new HashMap();
+            infoMap.put("buildTime", "2006");
+            builder.withDetails(infoMap);
+        }else{
+            builder.status(Status.OUT_OF_SERVICE);		//设置运行状态为不在服务状态
+            builder.withDetail("上线了吗？","你做梦");
+        }
+    }
+}
+```
+
++ 当任意一个组件状态不为UP时，整体应用对外服务状态为非UP状态
+
+**Metrics端点**
+
++ metrics端点描述了性能指标，除了系统自带的监控性能指标，还可以自定义性能指标
+
+```JAVA
+@Service
+public class BookServiceImpl extends ServiceImpl<BookDao, Book> implements IBookService {
+    @Autowired
+    private BookDao bookDao;
+
+    private Counter counter;
+
+    public BookServiceImpl(MeterRegistry meterRegistry){
+        counter = meterRegistry.counter("用户付费操作次数：");
+    }
+
+    @Override
+    public boolean delete(Integer id) {
+        //每次执行删除业务等同于执行了付费业务
+        counter.increment();
+        return bookDao.deleteById(id) > 0;
+    }
+}
+```
+
++ 在性能指标中就出现了自定义的性能指标监控项
+
+**自定义端点**
+
++ 可以根据业务需要自定义端点，方便业务监控
+
+```JAVA
+@Component
+@Endpoint(id="pay",enableByDefault = true)
+public class PayEndpoint {
+    @ReadOperation
+    public Object getPay(){
+        Map payMap = new HashMap();
+        payMap.put("level 1","300");
+        payMap.put("level 2","291");
+        payMap.put("level 3","666");
+        return payMap;
+    }
+}
+```
+
++ 由于此端点数据spirng boot admin无法预知该如何展示，所以通过界面无法看到此数据，通过HTTP请求路径可以获取到当前端点的信息，但是需要先开启当前端点对外功能，或者设置当前端点为默认开发的端点
+
+**总结**
+
+- 端点的指标可以自定义，但是每种不同的指标根据其功能不同，自定义方式不同
+- info端点通过配置和编程的方式都可以添加端点指标
+- health端点通过编程的方式添加端点指标，需要注意要为对应指标添加启动状态的逻辑设定
+- metrics指标通过在业务中添加监控操作设置指标
+- 可以自定义端点添加更多的指标
+
+# 整合第三方技术
+
+## SpringBoot整合MongoDB
+
+> Spring Data : Spring 的一个子项目。用于简化数据库访问，支持NoSQL 和 关系数据存储。其主要目标是使数据库的访问变得方便快捷
+>
+> SpringData 项目所支持 NoSQL 存储
+>
+> - MongoDB （文档数据库）
+>
+> - Neo4j（图形数据库）
+> - Redis（键/值存储）
+> - Hbase（列族数据库）
+>
+>
+> SpringData 项目所支持的关系数据存储技术
+>
+> - JDBC
+> - JPA
+
+### MongoRepository 
+
+使用Spring Data MongoDb Repository可以使你不用写相关的查询组合语句，它会内部为我们实现这样的一个类
+
+只要你按规定定义好接口名就可以免去你写查询组合语句
+
+Repository 接口是 Spring Data 的一个核心接口，它不提供任何方法，开发者需要在自己定义的接口中声明需要的方法 
+
+```java
+public interface Repository<T, ID extends Serializable> { } 
+```
+
+Spring Data可以让我们只定义接口，只要遵循 Spring Data的规范，就无需写实现类
+与继承 Repository 等价的一种方式，就是在持久层接口上使用 @RepositoryDefinition 注解，并为其指定 domainClass 和 idClass 属性,两种方式没有区别
+
+Repository 提供了最基本的数据访问功能，其几个子接口则扩展了一些功能。它们的继承关系如下
+
+```
+Repository： 仅仅是一个标识，表明任何继承它的均为仓库接口类
+CrudRepository： 继承 Repository，实现了一组 CRUD 相关的方法 
+PagingAndSortingRepository： 继承 CrudRepository，实现了一组分页排序相关的方法 
+MongoRepository： 继承 PagingAndSortingRepository，实现一组 mongodb规范相关的方法 
+```
+
+自定义的 XxxxRepository 需要继承 MongoRepository，这样的 XxxxRepository 接口就具备了通用的数据访问控制层的能力(CURD的操作功能)
+
+**MongoRepository的缺点是不够灵活，MongoTemplate正好可以弥补不足**
+
+**案例**
+
+**配置文件**
+
+```xml
+spring.data.mongodb.authentication-database=admin
+spring.data.mongodb.username=admin
+spring.data.mongodb.password=admin
+spring.data.mongodb.database=admin
+spring.data.mongodb.port=27017
+spring.data.mongodb.host=localhost
+
+spring.mvc.pathmatch.matching-strategy = ANT_PATH_MATCHER
+
+spring.servlet.multipart.max-file-size=256MB
+spring.servlet.multipart.max-request-size=256MB
+spring.servlet.multipart.enabled=true
+```
+
+**pom文件**
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.2</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.dailycodebuffer</groupId>
+    <artifactId>springboot-mongodb</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>springboot-mongodb</name>
+    <description>springboot-mongodb</description>
+    <properties>
+        <java.version>11</java.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.springfox</groupId>
+            <artifactId>springfox-boot-starter</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.springfox</groupId>
+            <artifactId>springfox-swagger-ui</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+```
+
+**实体类**
+
+```java
+package com.dailycodebuffer.springbootmongodb.collection;
+
+
+import lombok.Data;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+@Data
+@Document(collection = "User")
+public class User {
+
+    private String name;
+    private int age;
+
+    public User(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+}
+```
+
+**UserRepository**
+
+```java
+package com.dailycodebuffer.springbootmongodb.repository;
+
+import com.dailycodebuffer.springbootmongodb.collection.User;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.repository.RepositoryDefinition;
+import org.springframework.stereotype.Repository;
+
+
+@Repository
+public interface UserRepository extends MongoRepository<User,String> {
+}
+```
+
+**UserService**
+
+```java
+package com.dailycodebuffer.springbootmongodb.service;
+
+import com.dailycodebuffer.springbootmongodb.collection.User;
+
+public interface UserService {
+
+    String save(User user);
+
+}
+```
+
+**UserServiceImpl**
+
+```java
+package com.dailycodebuffer.springbootmongodb.service;
+
+import com.dailycodebuffer.springbootmongodb.collection.User;
+import com.dailycodebuffer.springbootmongodb.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+
+@Service
+public class UserServiceImpl implements UserService{
+
+
+    @Autowired
+    private UserRepository userRepository;
+
+
+    @Override
+    public String save(User user) {
+       return userRepository.save(user).getName();
+    }
+}
+```
+
+**test**
+
+```java
+@Test
+    void testUser(){
+        User tom = new User("mary", 23);
+        String tomName = userService.save(tom);
+        System.out.println("保存成功" + tomName);
+    }
+```
+
+### MongoTemplate
+
+MongoTemplate是数据库和代码之间的接口，对数据库的操作都在它里面
+
+```
+1.MongoTemplate实现了interface MongoOperations。
+2.MongoDB documents和domain classes之间的映射关系是通过实现了MongoConverter这个interface的类来实现的。
+3.MongoTemplate提供了非常多的操作MongoDB的方法。 它是线程安全的，可以在多线程的情况下使用。
+4.MongoTemplate实现了MongoOperations接口, 此接口定义了众多的操作方法如"find", "findAndModify", "findOne", "insert", "remove", "save", "update" and "updateMulti"等。
+5.MongoTemplate转换domain object为DBObject,缺省转换类为MongoMappingConverter,并提供了Query, Criteria, and Update等流式API。
+```
+
+![在这里插入图片描述](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408091441146.png)
+
+MongoTemplate核心操作类：Criteria和Query 
+
+```
+Criteria类：封装所有的语句，以方法的形式查询
+Query类：将语句进行封装或者添加排序之类的操作
+```
+
+**案例**
+
+**Animal**
+
+```java
+package com.dailycodebuffer.springbootmongodb.collection;
+
+import lombok.Data;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+@Data
+@Document(collection = "Animal")
+public class Animal {
+
+    private String name;
+    private String gender;
+
+    public Animal(String name, String gender) {
+        this.name = name;
+        this.gender = gender;
+    }
+}
+```
+
+**AnimalRepository**
+
+```java
+package com.dailycodebuffer.springbootmongodb.repository;
+
+
+import com.dailycodebuffer.springbootmongodb.collection.Animal;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface AnimalRepository {
+    public void saveAnimal(Animal animal);
+}
+```
+
+**AnimalRepositoryImpl**
+
+```java
+package com.dailycodebuffer.springbootmongodb.service;
+
+
+import com.dailycodebuffer.springbootmongodb.collection.Animal;
+import com.dailycodebuffer.springbootmongodb.repository.AnimalRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AnimalRepositoryImpl implements AnimalRepository {
+
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    @Override
+    public void saveAnimal(Animal animal) {
+        mongoTemplate.save(animal);
+    }
+}
+```
+
+**test**
+
+```java
+@Test
+    void testAnimal(){
+        Animal animal = new Animal("dog","male");
+        animalRepository.saveAnimal(animal);
+    }
+```
+
+## 缓存
 
 - 企业级应用主要作用是信息处理，当需要读取数据时，由于受限于数据库的访问效率，导致整体系统性能偏低
 
@@ -7259,9 +8101,7 @@ memcached.sanitizeKeys = false
 2. j2cache需要通过复杂的配置设置各级缓存，以及缓存之间数据交换的方式
 3. j2cache操作接口通过CacheChannel实现
 
-
-
-### 任务
+## 任务
 
 + springboot整合第三方技术第二部分我们来说说任务系统，其实这里说的任务系统指的是定时任务。定时任务是企业级开发中必不可少的组成部分，诸如长周期业务数据的计算，例如年度报表，诸如系统脏数据的处理，再比如系统性能监控报告，还有抢购类活动的商品上架，这些都离不开定时任务。本节将介绍两种不同的定时任务技术
 
@@ -7383,8 +8223,7 @@ spring:
 
 - 为定时执行的的任务设置执行周期，描述方式cron表达式
 
-
-### 邮件
+## 邮件
 
 - springboot整合第三方技术第三部分我们来说说邮件系统，发邮件是java程序的基本操作，springboot整合javamail其实就是简化开发。不熟悉邮件的小伙伴可以先学习完javamail的基础操作，再来看这一部分内容才能感触到springboot整合javamail究竟简化了哪些操作。简化的多码？其实不多，差别不大，只是换个格式而已
 
@@ -7542,8 +8381,7 @@ public class SendMailServiceImpl2 implements SendMailService {
 
 1. springboot整合javamail其实就是简化了发送邮件的客户端对象JavaMailSender的初始化过程，通过配置的形式加载信息简化开发过程
 
-
-### 消息
+## 消息
 
 #### 消息的概念
 
@@ -8566,520 +9404,6 @@ public class MessageListener {
 2. 操作Kafka需要配置Kafka服务器地址，默认端口9092
 
 3. 企业开发时通常使用监听器来处理消息队列中的消息，设置监听器使用注解@KafkaListener。接收消息保存在形参ConsumerRecord对象中
-
-
-## 监控
-
-- 在说监控之前，需要回顾一下软件业的发展史。最早的软件完成一些非常简单的功能，代码不多，错误也少。随着软件功能的逐步完善，软件的功能变得越来越复杂，功能不能得到有效的保障，这个阶段出现了针对软件功能的检测，也就是软件测试。伴随着计算机操作系统的逐步升级，软件的运行状态也变得开始让人捉摸不透，出现了不稳定的状况。伴随着计算机网络的发展，程序也从单机状态切换成基于计算机网络的程序，应用于网络的程序开始出现，由于网络的不稳定性，程序的运行状态让使用者更加堪忧。互联网的出现彻底打破了软件的思维模式，随之而来的互联网软件就更加凸显出应对各种各样复杂的网络情况之下的弱小。计算机软件的运行状况已经成为了软件运行的一个大话题，针对软件的运行状况就出现了全新的思维，建立起了初代的软件运行状态监控
-
-- 什么是监控？就是通过软件的方式展示另一个软件的运行情况，运行的情况则通过各种各样的指标数据反馈给监控人员。例如网络是否顺畅、服务器是否在运行、程序的功能是否能够整百分百运行成功，内存是否够用，等等等等
-
-- 本章要讲解的监控就是对软件的运行情况进行监督，但是springboot程序与非springboot程序的差异还是很大的，为了方便监控软件的开发，springboot提供了一套功能接口，为开发者加速开发过程
-
-
-### 监控的意义
-
-- 对于现代的互联网程序来说，规模越来越大，功能越来越复杂，还要追求更好的客户体验，因此要监控的信息量也就比较大了。由于现在的互联网程序大部分都是基于微服务的程序，一个程序的运行需要若干个服务来保障，因此第一个要监控的指标就是服务是否正常运行，也就是**监控服务状态是否处理宕机状态**。一旦发现某个服务宕机了，必须马上给出对应的解决方案，避免整体应用功能受影响
-- 其次，由于互联网程序服务的客户量是巨大的，当客户的请求在短时间内集中达到服务器后，就会出现各种程序运行指标的波动。比如内存占用严重，请求无法及时响应处理等，这就是第二个要监控的重要指标，**监控服务运行指标**
-- 虽然软件是对外提供用户的访问需求，完成对应功能的，但是后台的运行是否平稳，是否出现了不影响客户使用的功能隐患，这些也是要密切监控的，此时就需要在不停机的情况下，监控系统运行情况，日志是一个不错的手段。如何在众多日志中找到开发者或运维人员所关注的日志信息，简单快速有效的过滤出要看的日志也是监控系统需要考虑的问题，这就是第三个要监控的指标，**监控程序运行日志**
-- 虽然我们期望程序一直平稳运行，但是由于突发情况的出现，例如服务器被攻击、服务器内存溢出等情况造成了服务器宕机，此时当前服务不能满足使用需要，就要将其重启甚至关闭，如果快速控制服务器的启停也是程序运行过程中不可回避的问题，这就是第四个监控项，**管理服务状态**
-- 以上这些仅仅是从大的方面来思考监控这个问题，还有很多的细节点，例如上线了一个新功能，定时提醒用户续费，这种功能不是上线后马上就运行的，但是当前功能是否真的启动，如果快速的查询到这个功能已经开启，这也是监控中要解决的问题，等等。看来监控真的是一项非常重要的工作
-- 通过上述描述，可以看出监控很重要。那具体的监控要如何开展呢？还要从实际的程序运行角度出发。比如现在有3个服务支撑着一个程序的运行，每个服务都有自己的运行状态，此时被监控的信息就要在三个不同的程序中去查询并展示，但是三个服务是服务于一个程序的运行的，如果不能合并到一个平台上展示，监控工作量巨大，而且信息对称性差，要不停的在三个监控端查看数据。如果将业务放大成30个，300个，3000个呢？看来必须有一个单独的平台，将多个被监控的服务对应的监控指标信息汇总在一起，这样更利于监控工作的开展
-- 新的程序专门用来监控，新的问题就出现了，是被监控程序主动上报信息还是监控程序主动获取信息？如果监控程序不能主动获取信息，这就意味着监控程序有可能看到的是很久之前被监控程序上报的信息，万一被监控程序宕机了，监控程序就无法区分究竟是好久没法信息了，还是已经下线了。所以监控程序必须具有主动发起请求获取被监控服务信息的能力
-- 如果监控程序要监控服务时，主动获取对方的信息。那监控程序如何知道哪些程序被自己监控呢？不可能在监控程序中设置我监控谁，这样互联网上的所有程序岂不是都可以被监控到，这样的话信息安全将无法得到保障。合理的做法只能是在被监控程序启动时上报监控程序，告诉监控程序你可以监控我了。看来需要在被监控程序端做主动上报的操作，这就要求被监控程序中配置对应的监控程序是谁
-- 被监控程序可以提供各种各样的指标数据给监控程序看，但是每一个指标都代表着公司的机密信息，并不是所有的指标都可以给任何人看的，乃至运维人员，所以对被监控指标的是否开放出来给监控系统看，也需要做详细的设定
-- 以上描述的整个过程就是一个监控系统的基本流程
-
-
-**总结**
-
-- 监控是一个非常重要的工作，是保障程序正常运行的基础手段
-- 监控的过程通过一个监控程序进行，它汇总所有被监控的程序的信息集中统一展示
-- 被监控程序需要主动上报自己被监控，同时要设置哪些指标被监控
-
-**思考**
-
-+ 下面就要开始做监控了，新的问题就来了，监控程序怎么做呢？难道要自己写吗？肯定是不现实的，如何进行监控，咱们下节再讲
-
-### 可视化监控平台
-
-- springboot抽取了大部分监控系统的常用指标，提出了监控的总思想。然后就有好心的同志根据监控的总思想，制作了一个通用性很强的监控系统，因为是基于springboot监控的核心思想制作的，所以这个程序被命名为**Spring Boot Admin**
-
-- Spring Boot Admin，这是一个开源社区项目，用于管理和监控SpringBoot应用程序。这个项目中包含有客户端和服务端两部分，而监控平台指的就是服务端。我们做的程序如果需要被监控，将我们做的程序制作成客户端，然后配置服务端地址后，服务端就可以通过HTTP请求的方式从客户端获取对应的信息，并通过UI界面展示对应信
-
-- 下面就来开发这套监控程序，先制作服务端，其实服务端可以理解为是一个web程序，收到一些信息后展示这些信息
-
-
-**服务端开发**
-
-**步骤①**：导入springboot admin对应的starter，版本与当前使用的springboot版本保持一致，并将其配置成web工程
-
-```xml
-<dependency>
-    <groupId>de.codecentric</groupId>
-    <artifactId>spring-boot-admin-starter-server</artifactId>
-    <version>2.5.4</version>
-</dependency>
-
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-web</artifactId>
-</dependency>
-```
-
-+ 上述过程可以通过创建项目时使用勾选的形式完成
-
-**步骤②**：在引导类上添加注解@EnableAdminServer，声明当前应用启动后作为SpringBootAdmin的服务器使用
-
-```java
-@SpringBootApplication
-@EnableAdminServer
-public class Springboot25AdminServerApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(Springboot25AdminServerApplication.class, args);
-    }
-}
-```
-
-+ 做到这里，这个服务器就开发好了，启动后就可以访问当前程序了，界面如下
-
-+ 由于目前没有启动任何被监控的程序，所以里面什么信息都没有。下面制作一个被监控的客户端程序
-
-**客户端开发**
-
-+ 客户端程序开发其实和服务端开发思路基本相似，多了一些配置而已
-
-**步骤①**：导入springboot admin对应的starter，版本与当前使用的springboot版本保持一致，并将其配置成web工程
-
-```xml
-<dependency>
-    <groupId>de.codecentric</groupId>
-    <artifactId>spring-boot-admin-starter-client</artifactId>
-    <version>2.5.4</version>
-</dependency>
-
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-web</artifactId>
-</dependency>
-```
-
-+ 上述过程也可以通过创建项目时使用勾选的形式完成，不过一定要小心，端口配置成不一样的，否则会冲突
-
-**步骤②**：设置当前客户端将信息上传到哪个服务器上，通过yml文件配置
-
-```yaml
-spring:
-  boot:
-    admin:
-      client:
-        url: http://localhost:8080
-```
-
-- 做到这里，这个客户端就可以启动了。启动后再次访问服务端程序，界面如下
-
-- 可以看到，当前监控了1个程序，点击进去查看详细信息
-
-- 由于当前没有设置开放哪些信息给监控服务器，所以目前看不到什么有效的信息。下面需要做两组配置就可以看到信息了
-
-  - 开放指定信息给服务器看
-
-
-  - 允许服务器以HTTP请求的方式获取对应的信息
-
-     配置如下
-
-
-```yaml
-server:
-  port: 80
-spring:
-  boot:
-    admin:
-      client:
-        url: http://localhost:8080
-management:
-  endpoint:
-    health:
-      show-details: always
-  endpoints:
-    web:
-      exposure:
-        include: "*"
-```
-
-- 上述配置对于初学者来说比较容易混淆。简单解释一下，到下一节再做具体的讲解。springbootadmin的客户端默认开放了13组信息给服务器，但是这些信息除了一个之外，其他的信息都不让通过HTTP请求查看。所以你看到的信息基本上就没什么内容了，只能看到一个内容，就是下面的健康信息
-- 但是即便如此我们看到健康信息中也没什么内容，原因在于健康信息中有一些信息描述了你当前应用使用了什么技术等信息，如果无脑的对外暴露功能会有安全隐患。通过配置就可以开放所有的健康信息明细查看了
-
-```yaml
-management:
-  endpoint:
-    health:
-      show-details: always
-```
-
-- 健康明细信息如下
-- 目前除了健康信息，其他信息都查阅不了。原因在于其他12种信息是默认不提供给服务器通过HTTP请求查阅的，所以需要开启查阅的内容项，使用*表示查阅全部。记得带引号
-
-```yaml
-endpoints:
-  web:
-    exposure:
-      include: "*"
-```
-
-- 配置后再刷新服务器页面，就可以看到所有的信息了
-- 以上界面中展示的信息量就非常大了，包含了13组信息，有性能指标监控，加载的bean列表，加载的系统属性，日志的显示控制等等
-
-**配置多个客户端**
-
-可以通过配置客户端的方式在其他的springboot程序中添加客户端坐标，这样当前服务器就可以监控多个客户端程序了。每个客户端展示不同的监控信息进入监控面板，如果你加载的应用具有功能，在监控面板中可以看到3组信息展示的与之前加载的空工程不一样
-
-- 类加载面板中可以查阅到开发者自定义的类，如左图
-
-- 映射中可以查阅到当前应用配置的所有请求
-
-- 性能指标中可以查阅当前应用独有的请求路径统计数据
-
-**总结**
-
-- 开发监控服务端需要导入坐标，然后在引导类上添加注解@EnableAdminServer，并将其配置成web程序即可
-- 开发被监控的客户端需要导入坐标，然后配置服务端服务器地址，并做开放指标的设定即可
-- 在监控平台中可以查阅到各种各样被监控的指标，前提是客户端开放了被监控的指标
-
-**思考**
-
-+ 之前说过，服务端要想监控客户端，需要主动的获取到对应信息并展示出来。但是目前我们并没有在客户端开发任何新的功能，但是服务端确可以获取监控信息，谁帮我们做的这些功能呢？咱们下一节再讲
-
-### 监控原理
-
-+ 通过查阅监控中的映射指标，可以看到当前系统中可以运行的所有请求路径，其中大部分路径以/actuator开头
-
-- 首先这些请求路径不是开发者自己编写的，其次这个路径代表什么含义呢？既然这个路径可以访问，就可以通过浏览器发送该请求看看究竟可以得到什么信息
-- 通过发送请求，可以得到一组json信息，如下
-
-```json
-{
-    "_links": {
-        "self": {
-            "href": "http://localhost:81/actuator",
-            "templated": false
-        },
-        "beans": {
-            "href": "http://localhost:81/actuator/beans",
-            "templated": false
-        },
-        "caches-cache": {
-            "href": "http://localhost:81/actuator/caches/{cache}",
-            "templated": true
-        },
-        "caches": {
-            "href": "http://localhost:81/actuator/caches",
-            "templated": false
-        },
-        "health": {
-            "href": "http://localhost:81/actuator/health",
-            "templated": false
-        },
-        "health-path": {
-            "href": "http://localhost:81/actuator/health/{*path}",
-            "templated": true
-        },
-        "info": {
-            "href": "http://localhost:81/actuator/info",
-            "templated": false
-        },
-        "conditions": {
-            "href": "http://localhost:81/actuator/conditions",
-            "templated": false
-        },
-        "shutdown": {
-            "href": "http://localhost:81/actuator/shutdown",
-            "templated": false
-        },
-        "configprops": {
-            "href": "http://localhost:81/actuator/configprops",
-            "templated": false
-        },
-        "configprops-prefix": {
-            "href": "http://localhost:81/actuator/configprops/{prefix}",
-            "templated": true
-        },
-        "env": {
-            "href": "http://localhost:81/actuator/env",
-            "templated": false
-        },
-        "env-toMatch": {
-            "href": "http://localhost:81/actuator/env/{toMatch}",
-            "templated": true
-        },
-        "loggers": {
-            "href": "http://localhost:81/actuator/loggers",
-            "templated": false
-        },
-        "loggers-name": {
-            "href": "http://localhost:81/actuator/loggers/{name}",
-            "templated": true
-        },
-        "heapdump": {
-            "href": "http://localhost:81/actuator/heapdump",
-            "templated": false
-        },
-        "threaddump": {
-            "href": "http://localhost:81/actuator/threaddump",
-            "templated": false
-        },
-        "metrics-requiredMetricName": {
-            "href": "http://localhost:81/actuator/metrics/{requiredMetricName}",
-            "templated": true
-        },
-        "metrics": {
-            "href": "http://localhost:81/actuator/metrics",
-            "templated": false
-        },
-        "scheduledtasks": {
-            "href": "http://localhost:81/actuator/scheduledtasks",
-            "templated": false
-        },
-        "mappings": {
-            "href": "http://localhost:81/actuator/mappings",
-            "templated": false
-        }
-    }
-}
-```
-
-+ 其中每一组数据都有一个请求路径，而在这里请求路径中有之前看到过的health，发送此请求又得到一组信息
-
-```JSON
-{
-    "status": "UP",
-    "components": {
-        "diskSpace": {
-            "status": "UP",
-            "details": {
-                "total": 297042808832,
-                "free": 72284409856,
-                "threshold": 10485760,
-                "exists": true
-            }
-        },
-        "ping": {
-            "status": "UP"
-        }
-    }
-}
-```
-
-- 当前信息与监控面板中的数据存在着对应关系
-- 原来监控中显示的信息实际上是通过发送请求后得到json数据，然后展示出来。按照上述操作，可以发送更多的以/actuator开头的链接地址，获取更多的数据，这些数据汇总到一起组成了监控平台显示的所有数据
-- 到这里我们得到了一个核心信息，监控平台中显示的信息实际上是通过对被监控的应用发送请求得到的。那这些请求谁开发的呢？打开被监控应用的pom文件，其中导入了springboot admin的对应的client，在这个资源中导入了一个名称叫做actuator的包。被监控的应用之所以可以对外提供上述请求路径，就是因为添加了这个包
-
-- 这个actuator是什么呢？这就是本节要讲的核心内容，监控的端点
-- Actuator，可以称为端点，描述了一组监控信息，SpringBootAdmin提供了多个内置端点，通过访问端点就可以获取对应的监控信息，也可以根据需要自定义端点信息。通过发送请求路劲**/actuator**可以访问应用所有端点信息，如果端点中还有明细信息可以发送请求**/actuator/端点名称**来获取详细信息。以下列出了所有端点信息说明
-
-| ID               | 描述                                                         | 默认启用 |
-| ---------------- | ------------------------------------------------------------ | -------- |
-| auditevents      | 暴露当前应用程序的审计事件信息。                             | 是       |
-| beans            | 显示应用程序中所有 Spring bean 的完整列表。                  | 是       |
-| caches           | 暴露可用的缓存。                                             | 是       |
-| conditions       | 显示在配置和自动配置类上评估的条件以及它们匹配或不匹配的原因。 | 是       |
-| configprops      | 显示所有 @ConfigurationProperties 的校对清单。               | 是       |
-| env              | 暴露 Spring ConfigurableEnvironment 中的属性。               | 是       |
-| flyway           | 显示已应用的 Flyway 数据库迁移。                             | 是       |
-| health           | 显示应用程序健康信息                                         | 是       |
-| httptrace        | 显示 HTTP 追踪信息（默认情况下，最后 100 个  HTTP 请求/响应交换）。 | 是       |
-| info             | 显示应用程序信息。                                           | 是       |
-| integrationgraph | 显示 Spring Integration 图。                                 | 是       |
-| loggers          | 显示和修改应用程序中日志记录器的配置。                       | 是       |
-| liquibase        | 显示已应用的 Liquibase 数据库迁移。                          | 是       |
-| metrics          | 显示当前应用程序的指标度量信息。                             | 是       |
-| mappings         | 显示所有 @RequestMapping 路径的整理清单。                    | 是       |
-| scheduledtasks   | 显示应用程序中的调度任务。                                   | 是       |
-| sessions         | 允许从 Spring Session 支持的会话存储中检索和删除用户会话。当使用 Spring Session 的响应式 Web 应用程序支持时不可用。 | 是       |
-| shutdown         | 正常关闭应用程序。                                           | 否       |
-| threaddump       | 执行线程 dump。                                              | 是       |
-| heapdump         | 返回一个 hprof 堆 dump 文件。                                | 是       |
-| jolokia          | 通过 HTTP 暴露 JMX bean（当  Jolokia 在 classpath 上时，不适用于 WebFlux）。 | 是       |
-| logfile          | 返回日志文件的内容（如果已设置 logging.file 或 logging.path 属性）。支持使用 HTTP Range 头来检索部分日志文件的内容。 | 是       |
-| prometheus       | 以可以由 Prometheus 服务器抓取的格式暴露指标。               | 是       |
-
-+ 上述端点每一项代表被监控的指标，如果对外开放则监控平台可以查询到对应的端点信息，如果未开放则无法查询对应的端点信息。通过配置可以设置端点是否对外开放功能。使用enable属性控制端点是否对外开放。其中health端点为默认端点，不能关闭
-
-```yaml
-management:
-  endpoint:
-    health:						# 端点名称
-      show-details: always
-    info:						# 端点名称
-      enabled: true				# 是否开放
-```
-
-+ 为了方便开发者快速配置端点，springboot admin设置了13个较为常用的端点作为默认开放的端点，如果需要控制默认开放的端点的开放状态，可以通过配置设置，如下
-
-```YAML
-management:
-  endpoints:
-    enabled-by-default: true	# 是否开启默认端点，默认值true
-```
-
-+ 上述端点开启后，就可以通过端点对应的路径查看对应的信息了。但是此时还不能通过HTTP请求查询此信息，还需要开启通过HTTP请求查询的端点名称，使用“*”可以简化配置成开放所有端点的WEB端HTTP请求权限
-
-```YAML
-management:
-  endpoints:
-    web:
-      exposure:
-        include: "*"
-```
-
-+ 整体上来说，对于端点的配置有两组信息，一组是endpoints开头的，对所有端点进行配置，一组是endpoint开头的，对具体端点进行配置
-
-```YAML
-management:
-  endpoint:		# 具体端点的配置
-    health:
-      show-details: always
-    info:
-      enabled: true
-  endpoints:	# 全部端点的配置
-    web:
-      exposure:
-        include: "*"
-    enabled-by-default: true
-```
-
-**总结**
-
-- 被监控客户端通过添加actuator的坐标可以对外提供被访问的端点功能
-
-- 端点功能的开放与关闭可以通过配置进行控制
-
-- web端默认无法获取所有端点信息，通过配置开放端点功能
-
-
-### 自定义监控指标
-
-+ 端点描述了被监控的信息，除了系统默认的指标，还可以自行添加显示的指标，下面就通过3种不同的端点的指标自定义方式来学习端点信息的二次开发
-
-**INFO端点**
-
-+ info端点描述了当前应用的基本信息，可以通过两种形式快速配置info端点的信息
-
-- 配置形式
-
-  在yml文件中通过设置info节点的信息就可以快速配置端点信息
-
-  ```yaml
-  info:
-    appName: @project.artifactId@
-    version: @project.version@
-    company: 传智教育
-    author: itheima
-  ```
-
-  配置完毕后，对应信息显示在监控平台上
-
-  也可以通过请求端点信息路径获取对应json信息
-
-- 编程形式
-
-  通过配置的形式只能添加固定的数据，如果需要动态数据还可以通过配置bean的方式为info端点添加信息，此信息与配置信息共存
-
-  ```JAVA
-  @Component
-  public class InfoConfig implements InfoContributor {
-      @Override
-      public void contribute(Info.Builder builder) {
-          builder.withDetail("runTime",System.currentTimeMillis());		//添加单个信息
-          Map infoMap = new HashMap();		
-          infoMap.put("buildTime","2006");
-          builder.withDetails(infoMap);									//添加一组信息
-      }
-  }
-  ```
-
-**Health端点**
-
-+ health端点描述当前应用的运行健康指标，即应用的运行是否成功。通过编程的形式可以扩展指标信息
-
-```JAVA
-@Component
-public class HealthConfig extends AbstractHealthIndicator {
-    @Override
-    protected void doHealthCheck(Health.Builder builder) throws Exception {
-        boolean condition = true;
-        if(condition) {
-            builder.status(Status.UP);					//设置运行状态为启动状态
-            builder.withDetail("runTime", System.currentTimeMillis());
-            Map infoMap = new HashMap();
-            infoMap.put("buildTime", "2006");
-            builder.withDetails(infoMap);
-        }else{
-            builder.status(Status.OUT_OF_SERVICE);		//设置运行状态为不在服务状态
-            builder.withDetail("上线了吗？","你做梦");
-        }
-    }
-}
-```
-
-+ 当任意一个组件状态不为UP时，整体应用对外服务状态为非UP状态
-
-**Metrics端点**
-
-+ metrics端点描述了性能指标，除了系统自带的监控性能指标，还可以自定义性能指标
-
-```JAVA
-@Service
-public class BookServiceImpl extends ServiceImpl<BookDao, Book> implements IBookService {
-    @Autowired
-    private BookDao bookDao;
-
-    private Counter counter;
-
-    public BookServiceImpl(MeterRegistry meterRegistry){
-        counter = meterRegistry.counter("用户付费操作次数：");
-    }
-
-    @Override
-    public boolean delete(Integer id) {
-        //每次执行删除业务等同于执行了付费业务
-        counter.increment();
-        return bookDao.deleteById(id) > 0;
-    }
-}
-```
-
-+ 在性能指标中就出现了自定义的性能指标监控项
-
-**自定义端点**
-
-+ 可以根据业务需要自定义端点，方便业务监控
-
-```JAVA
-@Component
-@Endpoint(id="pay",enableByDefault = true)
-public class PayEndpoint {
-    @ReadOperation
-    public Object getPay(){
-        Map payMap = new HashMap();
-        payMap.put("level 1","300");
-        payMap.put("level 2","291");
-        payMap.put("level 3","666");
-        return payMap;
-    }
-}
-```
-
-+ 由于此端点数据spirng boot admin无法预知该如何展示，所以通过界面无法看到此数据，通过HTTP请求路径可以获取到当前端点的信息，但是需要先开启当前端点对外功能，或者设置当前端点为默认开发的端点
-
-**总结**
-
-- 端点的指标可以自定义，但是每种不同的指标根据其功能不同，自定义方式不同
-- info端点通过配置和编程的方式都可以添加端点指标
-- health端点通过编程的方式添加端点指标，需要注意要为对应指标添加启动状态的逻辑设定
-- metrics指标通过在业务中添加监控操作设置指标
-- 可以自定义端点添加更多的指标
 
 # SpringBoot原理篇
 
