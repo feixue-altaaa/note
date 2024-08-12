@@ -758,6 +758,46 @@ DBRef的形式
 }
 ```
 
+# Mongo数据库连接池
+
+每个 `MongoClient` 实例都管理创建 `MongoClient` 时指定的 MongoDB 集群或节点的连接池。`MongoClient` 对象在大多数驱动程序中都具有线程安全性
+
+```xml
+# Configure spring.data.mongodbDB Pool
+# 每个host的TCP连接数
+spring.data.mongodb.connectionsPerHost=10
+# 每个host的最小TCP连接数
+spring.data.mongodb.minConnectionsPerHost=10
+# 计算允许多少个线程阻塞等待可用TCP连接时的乘数（ 连接池里的连接数 ）
+# 算法：threadsAllowedToBlockForConnectionMultiplier*connectionsPerHost
+spring.data.mongodb.threadsAllowedToBlockForConnectionMultiplier=1
+spring.data.mongodb.serverSelectionTimeout=5000
+# 当连接池无可用连接时客户端阻塞等待的时长，单位毫秒
+spring.data.mongodb.maxWaitTime=15000
+# TCP连接闲置时间,单位毫秒
+spring.data.mongodb.maxConnectionIdleTime=3600000
+# TCP连接最多可以使用多久,单位毫秒
+spring.data.mongodb.maxConnectionLifeTime=3600000
+# 连接超时时间,必须大于0,单位毫秒
+spring.data.mongodb.connectTimeout=5000
+# socket超时时间,单位毫秒
+spring.data.mongodb.socketTimeout=5000
+spring.data.mongodb.socketKeepAlive=true
+spring.data.mongodb.sslEnabled=false
+spring.data.mongodb.sslInvalidHostNameAllowed=false
+spring.data.mongodb.alwaysUseMBeans=false
+# 设置心跳频率。 这是驱动程序将尝试确定群集中每个服务器的当前状态的频率。 默认值为10,000毫秒
+spring.data.mongodb.heartbeatFrequency=10000
+# 设置最小心跳频率。 如果驱动程序必须经常重新检查服务器的可用性，它将至少在上一次检查后等待很长时间，以避免浪费精力。 默认值为500毫秒。
+spring.data.mongodb.minHeartbeatFrequency=500
+# 设置用于集群心跳的连接的连接超时,单位毫秒
+spring.data.mongodb.heartbeatConnectTimeout=20000
+# 设置用于集群心跳的连接的套接字超时,单位毫秒
+spring.data.mongodb.heartbeatSocketTimeout=20000
+# 本地阈值
+spring.data.mongodb.localThreshold=15
+```
+
 # 系统架构
 
  MongoDB 与 MySQL 架构相差不多，底层都使用了『可插拔』的存储引擎以满足用户的不同需要
@@ -1861,6 +1901,149 @@ Client 在收到这个 `operationTime` 后，如果要实现因果一致，就�
 从功能和设计思路来看，MongoDB 无疑是丰富和先进的，但是在接口层面，读写采用不同的配置和级别，事务和非事务的概念区分，Causal Consistency Session 对 read/writeConcern的依赖等，都为用户的实际使用增加了门槛，当然这些也是 MongoDB 在易用性、功能性和性能多方取舍的结果，相信 MongoDB 后续会持续的做出改进。
 
 最后，伴随着 NewSQL 概念的兴起，「分布式+横向扩展+事务能力」逐渐成为新数据库系统的标配，MongoDB 也不例外。当我们在传统单机数据库环境下谈论一致性，更多指的是事务间的隔离性（Isolation），**如果把隔离性这个概念映射到分布式架构下**，可以容易看出，MongoDB 的 “local” readConcern 即对应 read uncommitted，”majority” readConcern 即对应 read committed，而 “snapshot” readConcern 对应的就是分布式的全局快照隔离，即这些新的概念部分也是来自于经典的 ACID 理论在分布式环境下的延伸，带上这样的视角可以让我们更容易理解 MongoDB 的一致性模型设计。
+
+
+# 如何保证mongodb和数据库双写数据一致性？
+
+## 与Redis和数据库的数据双写一致性问题差异
+
+### 我们是如何用缓存的？
+
+Redis缓存能提升我们系统的性能。
+
+一般情况下，如果有用户请求过来，先查缓存，如果缓存中存在数据，则直接返回。如果缓存中不存在，则再查数据库，如果数据库中存在，则将数据放入缓存，然后返回。如果数据库中也不存在，则直接返回失败。
+
+流程图如下
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121651250.webp)
+
+有了缓存之后，能够减轻数据库的压力，提升系统性能。
+
+通常情况下，保证缓存和数据双写数据一致性，最常用的技术方案是：`延迟双删`
+
+### 我们是如何用MongoDB的？
+
+`MongoDB`是一个高可用、分布式的`文档数据库`，用于大容量数据存储。文档存储一般用类似`json`的格式存储，存储的内容是文档型的。
+
+通常情况下，我们用来存储大数据或者json格式的数据。
+
+用户写数据的请求，`核心数据`会被写入数据库，json格式的`非核心数据`，可能会写入MongoDB
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121651422.webp)
+
+在数据库的表中，保存了MongoDB相关文档的id。
+
+用户读数据的请求，会先读数据库中的数据，然后通过文档的id，读取MongoDB中的数据
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121652446.webp)
+
+这样可以保证核心属性不会丢失，同时存储用户传入的较大的数据，两全其美。
+
+Redis和MongoDB在我们实际工作中的用途不一样，导致了它们双写数据一致性问题的解决方案是不一样的
+
+##  如何保证双写一致性？
+
+目前双写MongoDB和数据库的数据，用的最多的就是下面这两种方案
+
+### 先写数据库，再写MongoDB
+
+该方案最简单，先在数据库中写入核心数据，再在MongoDB中写入非核心数据
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121653366.webp)
+
+如果有些业务场景，对数据的完整性要求不高，即非核心数据可有可无，使用该方案也是可以的
+
+但如果有些业务场景，对数据完整性要求比较高，用这套方案可能会有问题
+
+当数据库刚保存了核心数据，此时网络出现异常，程序保存MongoDB的非核心数据时失败了
+
+但MongoDB并没有抛出异常，数据库中已经保存的数据没法回滚，这样会出现数据库中保存了数据，而MongoDB中没保存数据的情况，从而导致MongoDB中的非核心数据丢失的问题
+
+所以这套方案，在实际工作中使用不多
+
+### 先写MongoDB，再写数据库
+
+在该方案中，先在MongoDB中写入非核心数据，再在数据库中写入核心数据
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121653116.webp)
+
+关键问题来了：如果MongoDB中非核心数据写入成功了，但数据库中的核心数据写入失败了怎么办？
+
+这时候MongoDB中非核心数据不会回滚，可能存在MongoDB中保存了数据，而数据库中没保存数据的问题，同样会出现数据不一致的问题。
+
+答：我们忘了一个前提，查询MongoDB文档中的数据，必须通过数据库的表中保存的`mongo id`。但如果这个`mongo id`在数据库中都没有保存成功，那么，在MongoDB文档中的数据是永远都查询不到的。
+
+也就是说，这种情况下MongoDB文档中保存的是`垃圾数据`，但对实际业务并没有影响。
+
+这套方案可以解决双写数据一致性问题，但它同时也带来了两个新问题：
+
+- 用户修改操作如何保存数据？
+- 如何清理垃圾数据？
+
+## 用户修改操作如何保存数据？
+
+我之前聊的先写MongoDB，再写数据库，这套方案中的流程图，其实主要说的是新增数据的场景。
+
+但如果在用户修改数据的操作中，用户先修改MongoDB文档中的数据，再修改数据库表中的数据
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121654679.webp)
+
+如果出现MongoDB文档中的数据修改成功了，但数据库表中的数据修改失败了，不也出现问题了？
+
+那么，用户修改操作时如何保存数据呢？
+
+这就需要把流程调整一下，在修改MongoDB文档时，还是新增一条数据，不直接修改，生成一个新的mongo id。然后在修改数据库表中的数据时，同时更新mongo id字段为这个新值。
+
+流程图如下
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121655773.webp)
+
+这样如果新增MongoDB文档中的数据成功了，但修改数据库表中的数据失败了，也没有关系，因为数据库中老的数据，保存的是老的mongo id。通过该id，依然能从MongoDB文档中查询出数据。
+
+使用该方案能够解决修改数据时，数据一致性问题，但同样会存在垃圾数据。
+
+其实这个垃圾数据是可以即使删除的，具体流程图如下
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121655497.webp)
+
+在之前的流程中，修改完数据库，更新了mongo id为新值，接下来，就把MongoDB文档中的那条老数据直接删了。
+
+该方案可以解决用户修改操作中，99%的的垃圾数据，但还有那1%的情况，即如果最后删除失败该怎么办？
+
+答：这就需要加`重试机制`了。
+
+我们可以使用`job`或者`mq`进行重试，优先推荐使用mq增加重试功能。特别是想`RocketMQ`，自带了失败重试机制，有专门的`重试队列`，我们可以设置`重试次数`。
+
+流程图优化如下
+
+![img](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121656796.webp)
+
+将之前删除MongoDB文档中的数据操作，改成发送mq消息，有个专门的mq消费者，负责删除数据工作，可以做成共用的功能。它包含了失败重试机制，如果删除5次还是失败，则会把该消息保存到`死信队列`中。
+
+然后专门有个程序监控死信队列中的数据，如果发现有数据，则发`报警邮件`。
+
+这样基本可以解决修改删除垃圾数据失败的问题。
+
+## 如何清理新增的垃圾数据？
+
+还有一种垃圾数据还没处理，即在用户新增数据时，如果写入MongoDB文档成功了，但写入数据库表失败了。由于MongoDB不会回滚数据，这时候MongoDB文档就保存了垃圾数据，那么这种数据该如何清理呢？
+
+### 定时删除
+
+我们可以使用job定时扫描，比如：`每天`扫描一次MongoDB文档，将mongo id取出来，到数据库查询数据，如果能查出数据，则保留MongoDB文档中的数据。如果在数据库中该mongo id不存在，则删除MongoDB文档中的数据
+
+如果MongoDB文档中的数据量不多，是可以这样处理的。但如果数据量太大，这样处理会有性能问题。这就需要做优化，常见的做法是：`缩小扫描数据的范围`
+
+比如：扫描MongoDB文档数据时，根据创建时间，只查最近24小时的数据，查出来之后，用mongo id去数据库查询数据。如果直接查最近24小时的数据，会有问题，会把刚写入MongoDB文档，但还没来得及写入数据库的数据也查出来，这种数据可能会被误删。
+
+可以把时间再整体提前一小时，例如获取25小时前到1小时前的数据。这样可以解决大部分系统中，因为数据量过多，在一个定时任务的执行周期内，job处理不完的问题
+
+但如果根据时间缩小范围之后，数据量还是太大，job还是处理不完该怎么办？
+
+- 答：我们可以在job用`多线程`删除数据
+- 当然我们还可以将job的执行时间缩短，根据实际情况而定，比如每隔12小时，查询创建时间是13小时前到1小时前的数据
+- 或者每隔6小时，查询创建时间是7小时前到1小时前的数据
+- 或者每隔1小时，查询创建时间是2小时前到1小时前的数据等等
 
 # 存储引擎
 

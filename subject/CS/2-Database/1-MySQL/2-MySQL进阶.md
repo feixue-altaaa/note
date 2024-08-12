@@ -192,6 +192,360 @@ show variables like 'innodb_1 file_per_table';
 |  MyISAM  | 不支持事务，不支持外键 支持表锁，不支持行锁 访问速度快       |
 |  Memory  | Memory引擎的表数据是**存储在内存**中的，由于受到硬件问题、或断电问题的影响，只能将这些表作为临时表或缓存使用；hash索引（默认） |
 
+# 数据库连接池
+
+## why
+
+数据库连接是一种关键的有限的资源，“获得连接”或“释放资源”是非常消耗系统资源的两个过程。 数据库连接池的解决方案是在应用程序启动时建立足够的数据库连接，并将这些连接组成一个连接池(简单说：在一个“池”里放了好多半成品的数据库连接对象)，由应用程序动态地对池中的连接进行申请、使用和释放
+
+对于多于连接池中连接数的并发请求，应该在请求队列中排队等待。并且应用程序可以根据池中连接的使用率，动态增加或减少池中的连接数
+
+ 连接池技术尽可能多地重用了消耗内存地资源，节省了内存，提高了服务器的服务效率，能够支持更多的客户服务。通过使用连接池，将大大提高程序运行效率，同时，我们可以通过其自身的管理机制来监视数据库连接的数量、使用情况等
+
+### 不使用连接池流程
+
+下面以访问MySQL为例，执行一个SQL命令，如果不使用连接池，需要经过哪些流程
+
+![数据库连接池学习笔记（一）：原理介绍+常用连接池介绍](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121001728.png)
+
+不使用数据库连接池的步骤
+
+- TCP建立连接的三次握手
+- MySQL认证的三次握手
+- 真正的SQL执行
+- MySQL的关闭
+- TCP的四次握手关闭
+
+可以看到，为了执行一条SQL，却多了非常多我们不关心的网络交互
+
+**优点**
+
+- 实现简单
+
+**缺点**
+
+- 网络IO较多
+- 数据库的负载较高
+- 响应时间较长及QPS较低
+- 应用频繁的创建连接和关闭连接，导致临时对象较多，GC频繁
+- 在关闭连接后，会出现大量TIME_WAIT 的TCP状态（在2个MSL之后关闭）
+
+### **使用连接池流程**
+
+![数据库连接池学习笔记（一）：原理介绍+常用连接池介绍](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121002408.png)
+
+使用数据库连接池的步骤
+
+第一次访问的时候，需要建立连接。 但是之后的访问，均会**复用**之前创建的连接，直接执行SQL语句
+
+**优点**
+
+- 较少了网络开销
+- 系统的性能会有一个实质的提升
+- 没了麻烦的TIME_WAIT状态
+
+## what
+
+数据库连接池负责分配、管理和释放数据库连接，它允许应用程序重复使用一个现有的数据库连接，而不是再重新建立一个；释放空闲时间超过最大空闲时间的数据库连接来避免因为没有释放数据库连接而引起的数据库连接遗漏。这项技术能明显提高对数据库操作的性能
+
+### 常见的连接池
+
+#### C3P0
+在很长一段时间内，它一直是Java领域内数据库连接池的代名词，当年盛极一时的Hibernate都将其作为内置的数据库连接池，可以业内对它的稳定性还是认可的。C3P0功能简单易用，稳定性好这是它的优点，但是性能上的缺点却让它彻底被打入冷宫。C3P0的性能很差，差到即便是同时代的产品相比它也是垫底的，更不用和Druid、HikariCP等相比了。正常来讲，有问题很正常，改就是了，但c3p0最致命的问题就是架构设计过于复杂，让重构变成了一项不可能完成的任务。随着国内互联网大潮的涌起，性能有硬伤的c3p0彻底的退出了历史舞台
+
+#### DBCP
+
+DBCP（DataBase Connection Pool）属于Apache顶级项目Commons中的核心子项目（最早在Jakarta Commons里就有）,在Apache的生态圈中的影响里十分广泛，比如最为大家所熟知的Tomcat就在内部集成了DBCP，实现JPA规范的OpenJPA，也是默认集成DBCP的。但DBCP并不是独立实现连接池功能的，它内部依赖于Commons中的另一个子项目Pool，连接池最核心的“池”，就是由Pool组件提供的，因此，DBCP的性能实际上就是Pool的性能
+
+因为核心功能依赖于Pool，所以DBCP本身只能做小版本的更新，真正大版本的更迭则完全依托于pool。有很长一段时间，pool都还是停留在1.x版本，这直接导致DBCP也更新乏力。很多依赖DBCP的应用在遇到性能瓶颈之后，别无选择，只能将其替换掉，DBCP忠实的拥趸tomcat就在其tomcat 7.0版本中，自己重新设计开发出了一套连接池（Tomcat JDBC Pool）。好在，在2013年事情终于迎来转机，13年9月Commons-Pool 2.0版本发布，14年2月份，DBCP也终于迎来了自己的2.0版本，基于新的线程模型全新设计的“池”让DBCP重焕青春，虽然和新一代的连接池相比仍有一定差距，但差距并不大
+
+#### HikariCP
+
+**springboot2.x之后默认的数据库连接池**
+
+HikariCP号称“性能杀手”（It’s Faster）
+
+那它是怎么做到如此强劲的呢？官网给出的说明如下：
+
+- 字节码精简：优化代码，直到编译后的字节码最少，这样，CPU缓存可以加载更多的程序代码；
+- 优化代理和拦截器：减少代码，例如HikariCP的Statement proxy只有100行代码；
+- 自定义数组类型（FastStatementList）代替ArrayList：避免每次get()调用都要进行range check，避免调用remove()时的从头到尾的扫描；
+- 自定义集合类型（ConcurrentBag）：提高并发读写的效率；
+- 其他缺陷的优化，比如对于耗时超过一个CPU时间片的方法调用的研究（但没说具体怎么优化）
+
+#### Druid
+
+近几年，阿里在开源项目上动作频频，除了有像fastJson、dubbo这类项目，更有像AliSQL这类的大型软件，今天说的Druid，就是阿里众多优秀开源项目中的一个。它除了提供性能卓越的连接池功能外，还集成了SQL监控，黑名单拦截等功能，用它自己的话说，Druid是“为监控而生”。借助于阿里这个平台的号召力，产品一经发布就赢得了大批用户的拥趸，从用户使用的反馈来看，Druid也确实没让用户失望。
+
+相较于其他产品，Druid另一个比较大的优势，就是中文文档比较全面（毕竟是国人的项目么），在github的[*wiki页面*](https://cloud.tencent.com/developer/tools/blog-entry?target=https%3A%2F%2Fgithub.com%2Falibaba%2Fdruid%2Fwiki%2F%E9%A6%96%E9%A1%B5&source=article&objectId=2131356)，列举了日常使用中可能遇到的问题，对一个新用户来讲，上面提供的内容已经足够指导它完成产品的配置和使用了
+
+现在项目开发中，我还是比较倾向于使用Durid，它不仅仅是一个数据库连接池，它还包含一个ProxyDriver，一系列内置的JDBC组件库，一个SQL Parser。
+
+**Druid 相对于其他数据库连接池的优点**
+
+- 强大的监控特性，通过Druid提供的监控功能，可以清楚知道连接池和SQL的工作情况
+  - 监控SQL的执行时间、ResultSet持有时间、返回行数、更新行数、错误次数、错误堆栈信息
+  - SQL执行的耗时区间分布。什么是耗时区间分布呢？比如说，某个SQL执行了1000次，其中0~1毫秒区间50次，1~10毫秒800次，10~100毫秒100次，100~1000毫秒30次，1~10秒15次，10秒以上5次。通过耗时区间分布，能够非常清楚知道SQL的执行耗时情况
+- c. 监控连接池的物理连接创建和销毁次数、逻辑连接的申请和关闭次数、非空等待次数、PSCache命中率等
+- 方便扩展。Druid提供了Filter-Chain模式的扩展API，可以自己编写Filter拦截JDBC中的任何方法，可以在上面做任何事情，比如说[性能监控](https://cloud.tencent.com/product/apm?from_column=20065&from=20065)、SQL审计、用户名密码加密、日志等等
+- Druid集合了开源和商业数据库连接池的优秀特性，并结合阿里巴巴大规模苛刻生产环境的使用经验进行优化
+
+
+## how
+
+### 数据库连接池的工作流程
+
+连接池的工作流程主要由三部分组成，分别为
+
+**连接池的建立**。一般在系统初始化时，连接池会根据系统配置建立，并在池中创建了几个连接对象，以便使用时能从连接池中获取。连接池中的连接不能随意创建和关闭，这样避免了连接随意建立和关闭造成的系统开销。Java中提供了很多容器类可以方便的构建连接池，例如Vector、Stack等
+
+**连接池的管理**。连接池管理策略是连接池机制的核心，连接池内连接的分配和释放对系统的性能有很大的影响。其管理策略是
+
+- 当客户请求数据库连接时，首先查看连接池中是否有空闲连接，如果存在空闲连接，则将连接分配给客户使用；如果没有空闲连接，则查看当前所开的连接数是否已经达到最大连接数，如果没达到就重新创建一个连接给请求的客户；如果达到就按设定的最大等待时间进行等待，如果超出最大等待时间，则抛出异常给客户
+- 当客户释放数据库连接时，先判断该连接的引用次数是否超过了规定值，如果超过就从连接池中删除该连接，否则保留为其他客户服务
+- 该策略保证了数据库连接的有效复用，避免频繁的建立、释放连接所带来的系统资源开销
+
+**连接池的关闭**。当应用程序退出时，关闭连接池中所有的连接，释放连接池相关的资源，该过程正好与创建相反
+
+### 连接池主要参数
+
+**使用连接池时，要配置一下参数**
+
+- 最小连接数：是连接池一直保持的数据库连接,所以如果应用程序对数据库连接的使用量不大,将会有大量的数据库连接资源被浪费.
+- 最大连接数：是连接池能申请的最大连接数,如果数据库连接请求超过次数,后面的数据库连接请求将被加入到等待队列中,这会影响以后的数据库操作
+- 最大空闲时间
+- 获取连接超时时间
+- 超时重试连接次数
+
+### HikariCP的使用配置案例
+
+如下是常用的HikariCP的使用配置
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/test_db?useSSL=false&autoReconnect=true&characterEncoding=utf8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: bfXa4Pt2lUUScy8jakXf
+    # 指定为HikariDataSource
+    type: com.zaxxer.hikari.HikariDataSource
+    # hikari连接池配置
+    hikari:
+      #连接池名
+      pool-name: HikariCP
+      #最小空闲连接数
+      minimum-idle: 5
+      # 空闲连接存活最大时间，默认10分钟
+      idle-timeout: 600000
+      # 连接池最大连接数，默认是10
+      maximum-pool-size: 10
+      # 此属性控制从池返回的连接的默认自动提交行为,默认值：true
+      auto-commit: true
+      # 此属性控制池中连接的最长生命周期，值0表示无限生命周期，默认30分钟
+      max-lifetime: 1800000
+      # 数据库连接超时时间,默认30秒
+      connection-timeout: 30000
+      # 连接测试query
+      connection-test-query: SELECT 1
+```
+
+### SpringBoot配置Druid连接池
+
+#### 在pom.xml中引入依赖
+
+```xml
+<!-- 数据库 -->
+<dependency>
+    <groupId>mysql</groupId>
+    <artifactId>mysql-connector-java</artifactId>
+    <scope>runtime</scope>
+</dependency>
+<!--引入阿里巴巴druid连接池-->
+<dependency>
+    <groupId>com.alibaba</groupId>
+    <artifactId>druid</artifactId>
+    <version>1.2.6</version>
+</dependency>
+<!--自启动Druid管理后台-->
+<dependency>
+    <groupId>com.alibaba</groupId>
+    <artifactId>druid-spring-boot-starter</artifactId>
+    <version>1.1.10</version>
+</dependency>
+```
+
+#### 配置application.yml
+
+```yaml
+server:
+  port: 8083
+  session:
+    timeout: 1800
+spring:
+  aop:
+    auto: true
+    proxy-target-class: false
+  thymeleaf:
+    #验证模板是否存在
+    check-template: false
+    check-template-location: false
+    mode: HTML
+    prefix: classpath:/templates/
+  profiles:
+    active: dev
+    #连接池的配置信息
+  druid:
+    ## 初始化大小，最小，最大
+    initialSize: 5
+    minIdle: 5
+    maxActive: 20
+    maxPoolPreparedStatementPerConnectionSize: 20
+    ## 配置获取连接等待超时的时间
+    maxWait: 60000
+    # 配置一个连接在池中最小生存的时间，单位是毫秒
+    minEvictableIdleTimeMillis: 300000
+    poolPreparedStatements: true
+    #申请连接时执行validationQuery检测连接是否有效，做了这个配置会降低性能。
+    testOnBorrow: false
+    #归还连接时执行validationQuery检测连接是否有效，做了这个配置会降低性能。
+    testOnReturn: false
+    #建议配置为true，不影响性能，并且保证安全性。申请连接的时候检测，如果空闲时间大于timeBetweenEvictionRunsMillis，执行validationQuery检测连接是否有效。
+    testWhileIdle: true
+    #连接保持空闲而不被驱逐的最小时间
+    timeBetweenEvictionRunsMillis: 60000
+    #用来检测连接是否有效的sql，要求是一个查询语句
+    validationQuery: SELECT 1 FROM DUAL
+    # 配置监控统计拦截的filters，去掉后监控界面sql无法统计，'wall'用于防火墙
+    filters: stat,wall,log4j
+    # 通过connectProperties属性来打开mergeSql功能；慢SQL记录
+    connectionProperties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=5000
+    useGlobalDataSourceStat: true
+    loginUsername: admin  # SQL监控后台登录用户名
+    loginPassword: 1  # SQL监控后台登录用户密码
+```
+
+#### 新建一个Druid的配置文件DruidConfig
+
+```java
+package com.tms.tblog.infrastructure.config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+
+import com.alibaba.druid.pool.DruidDataSource;
+import com.alibaba.druid.support.http.StatViewServlet;
+import com.alibaba.druid.support.http.WebStatFilter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
+import org.springframework.context.annotation.Configuration;
+
+import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Druid连接池配置
+ */
+@Configuration
+public class DruidConfig {
+
+    @Value("${spring.druid.loginUsername}")
+    private String loginUsername;
+
+    @Value("${spring.druid.loginPassword}")
+    private String loginPassword;
+
+    //加载application.yaml中的Druid配置
+    @ConfigurationProperties(prefix = "spring.datasource")
+    @Bean
+    public DataSource druid() {
+        return new DruidDataSource();
+    }
+
+    //配置Druid的监控
+    //1、配置一个管理后台的Servlet
+    @Bean
+    public ServletRegistrationBean statViewServlet() {
+        ServletRegistrationBean bean = new ServletRegistrationBean(new StatViewServlet(), "/druid/*");
+        Map<String, String> initParams = new HashMap<>();
+
+        initParams.put("loginUsername", loginUsername);// druid的密码
+        initParams.put("loginPassword", loginPassword); // druid的用户名
+        initParams.put("allow", ""); // 默认就是允许所有访问 IP白名单 (没有配置或者为空，则允许所有访问)
+        initParams.put("deny", "");  // IP黑名单 (存在共同时，deny优先于allow)
+
+        bean.setInitParameters(initParams);
+        return bean;
+    }
+
+    /**
+     * 配置一个web监控的filter
+     * @return
+     */
+    @Bean
+    public FilterRegistrationBean webStatFilter() {
+
+        FilterRegistrationBean bean = new FilterRegistrationBean(new WebStatFilter());
+        // 添加过滤规则
+        Map<String, String> initParams = new HashMap<>(1);
+        // 设置忽略请求
+        initParams.put("exclusions", "*.js,*.gif,*.jpg,*.bmp,*.png,*.css,*.ico,/druid/*");
+        bean.setInitParameters(initParams);
+        bean.addInitParameter("profileEnable", "true");
+        bean.addInitParameter("principalCookieName", "USER_COOKIE");
+        bean.addInitParameter("principalSessionName", "");
+        bean.addInitParameter("aopPatterns", "com.example.demo.service");
+        // 验证所有请求
+        bean.addUrlPatterns("/*");
+        return bean;
+    }
+}
+```
+
+#### 运行结果
+
+启动程序然后在浏览器上输入http://localhost:8083/druid进入登录界面，输入druid的用户名密码就能登录进去了
+
+![image-20240812112315667](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202408121123784.png)
+
+#### 测试基本的CRUD
+
+```java
+@Test
+void testDruid() throws SQLException {
+
+    //获取数据库连接
+    DruidDataSource druidDataSource = (DruidDataSource) dataSource;
+    System.out.println(druidDataSource.getDriverClassName());
+    System.out.println(druidDataSource.getUrl());
+    System.out.println(druidDataSource.getUsername());
+    System.out.println(druidDataSource.getPassword());
+
+    DruidPooledConnection connection = null;
+    try {
+        connection = druidDataSource.getConnection(1000);
+    } catch (SQLException e) {
+        throw new RuntimeException(e);
+    }
+    //验证是否使用连接池
+    System.out.println(connection.getClass().getName());
+
+    //测试
+    String sql = "insert into category (cid,cname) values (123,'tom')";
+    PreparedStatement preparedStatement = connection.prepareStatement(sql);
+    preparedStatement.execute();
+    System.out.println("执行成功");
+    String query = "select * from category";
+    ResultSet resultSet = preparedStatement.executeQuery(query);
+    while (resultSet.next()) {
+        System.out.println(resultSet.getString("cid"));
+    }
+
+}
+```
+
 # 索引
 
 ## What
