@@ -1,3 +1,8 @@
+
+
+
+
+
 ### Spring Boot 2.7开始spring.factories不推荐使用
 
 当我们要引入某个功能的时候，只需要在maven或gradle的配置中直接引入对应的Starter，马上就可以使用了，而不需要像传统Spring应用那样写个xml或java配置类来初始化各种Bean
@@ -3413,3 +3418,12 @@ registerBeanPostProcessors(beanFactory);
 // 对应阶段3：实例化所有剩余的（非延迟初始化）单例。
 finishBeanFactoryInitialization(beanFactory);    
 ```
+
+
+
+
+# 参考文档
+[Spring Boot启动流程bilibili](https://iilgw85n3f.feishu.cn/docx/DdE1d1wB2oEO8TxKpB7calxdnSc)
+
+
+
