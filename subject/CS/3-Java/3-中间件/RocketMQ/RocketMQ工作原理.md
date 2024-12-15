@@ -1,3 +1,119 @@
+ 
+
+# 整体架构
+
+RocketMQ主要有四大核心组成部分：NameServer、Broker、Producer以及Consumer四部分
+
+- NameServer：Name Server是一个几乎无状态节点，可集群部署，节点之间无任何信息同步。NameServer 是整个 RocketMQ 的 "中央大脑 " ，它是 RocketMQ 的服务注册中心，所以 RocketMQ 需要先启动 NameServer 再启动 Rocket 中的 Broker
+- Broker： 消息服务器，作为Server提供消息核心服务, 它接收并存储Producer生产的消息，也提供消息给Consumer消费。Broker一般会分主从，Master 可读可写，Slave 只读
+- Producer： 消息生产者，消息的发送方，负责生产消息传输给broker。RocketMQ提供了发送：同步、异步和单向（one-way）的多种模式
+- Consumer： 消息消费者，消息的处理方，负责从broker获取消息并进行业务逻辑处理
+
+另外其他如 Topic、 Message，也是重要的组成部分
+
+- Topic：主题，发布/订阅模式下的消息统一汇集地，不同生产者向topic发送消息，由MQ服务器分发到不同的订阅者，实现消息的广播
+- Message：消息体，根据不同通信协议定义的固定格式进行编码的数据包，来封装业务数据，实现消息的传输
+
+![image](https://img2022.cnblogs.com/blog/167509/202208/167509-20220820175856200-1396709771.png)
+
+- NameServer 作为整个 RocketMQ 的“中央大脑” ，负责对集群元数据进行管理，所以 RocketMQ 需要先启动 NameServer 再启动 Rocket 中的 Broker。
+- Broker 启动后，与 NameServer 保持长连接，每 30s 发送一次发送心跳包，来确保Broker是否存活。并将 Broker 信息 ( IP+、端口等信息）以及Broker中存储的Topic信息上报。注册成功后，NameServer 集群中就有 Topic 跟 Broker 的映射关系。
+- NameServer有个定时任务，每10s扫描下`brokerLiveTable`表 , 如果检测到某个Broker 宕机（因为使用心跳机制， 如果检测超120s（两分钟）无上报心跳），则从路由注册表中将其移除。
+- 生产者在发送某个主题的消息之前先从 NamerServer 获取 Broker 服务器地址列表（通过topic名称查询`topicQueueTable`获得broker名称，通过broker名称查询`brokerAddressTable`获取具体的Broker IP地址），然后根据负载均衡算法从列表中选择1台Broker ，建立连接通道，进行消息发送。
+- 消费者在订阅某个topic的消息之前从 NamerServer 获取 Broker 服务器地址列表（同上），包括关联的全部Topic队列信息。进而获取当前订阅 Topic 存在哪些 Broker 上，然后直接跟 Broker 建立连接通道，开始消费数据。
+- 生产者和消费者默认每30s 从 NamerServer 获取 Broker 服务器地址列表，以及关联的所有Topic队列信息，更新到Client本地
+
+## NameServer运行流程
+
+### 路由管理
+
+namesrv的路由管理主要由 **RouteInfoManager** 对象负责，该对象维护了一个内存中的路由表，包括以下几个部分
+
+- **clusterAddrTable** : Broker 集群信息
+- **brokerLiveTable** : Broker 状态信息
+- **brokerAddrTable** : Broker 基础信息
+- **topicQueueTable** : 主题的队列信息
+- **filterServerTable** : Broker 中 FilterServer 列表
+
+**RouteInfoManager** 
+
+```java
+private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
+private final static long BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
+private final ReadWriteLock lock = new ReentrantReadWriteLock();
+private final HashMap<String/* topic */, Map<String /* brokerName */ , QueueData>> topicQueueTable;
+private final HashMap<String/* brokerName */, BrokerData> brokerAddrTable;
+private final HashMap<String/* clusterName */, Set<String/* brokerName */>> clusterAddrTable;
+private final HashMap<String/* brokerAddr */, BrokerLiveInfo> brokerLiveTable;
+private final HashMap<String/* brokerAddr */, List<String>/* Filter Server */> filterServerTable;
+```
+
+#### topicQueueTable
+
+- **topicQueueTable**：一个 Map 结构，key是 topic 名称，value 是一个 Map 结构，key 是 brokerName，value 是 QueueData 对象
+- **topicQueueTable** 中的 broker 是一个 **broker 组**，包含 Master 和 Slave 两部分
+
+**QueueData**
+
+```java
+private String brokerName; //存储该队列的 broker 的名称
+private int readQueueNums; //读队列的数量，即该队列下有多少个读队列，这个值在创建队列时由用户指定，通常是4
+private int writeQueueNums; //写队列的数量，即该队列下有多少个写队列，这个值在创建队列时由用户指定，通常是4
+private int perm; //队列的权限，是一个二进制数，如6代表可读写，4代表只可读，2代表只可写，0代表没有权限
+private int topicSysFlag; //系统标志
+```
+
+#### brokerAddrTable
+
+- **brokerAddrTable**：一个 Map 结构，key 是 brokerName，value 是 BrokerData 对象
+- **brokerAddrTable** 中的 broker 是一个 **broker 组**，包含 Master 和 Slave 两部分
+
+**BrokerData** 
+
+```java
+private String cluster; //当前 broker 所在的集群名称
+private String brokerName; //当前 broker 的名称
+private HashMap<Long/* brokerId */, String/* broker address */> brokerAddrs; //当前 broker 的地址，是一个 Map，key 是 brokerId，value 是单个 broker 实例（一个 Master broker 或一个 Slave broker）的地址
+```
+
+#### clusterAddrTable
+
+**clusterAddrTable**：一个 Map 结构，key 是 broker 所在的集群的名称，value 是 broker 名称的集合
+
+**clusterAddrTable** 中的 broker 是一个 **broker 系统**
+
+#### brokerLiveTable
+
+- 一个 Map 结构，key 是 brokerAddr，value 是 BrokerLiveInfo 对象
+- **brokerLiveTable** 中的 broker 是一个 **broker 实例**，如一个 Master broker 或 一个 Slave broker 实例
+
+**BrokerLiveInfo**
+
+```java
+private long lastUpdateTimestamp; //broker 最后一次向 NameServer 发送心跳的时间戳。这个用来检查 broker 是否过期或者不在线
+private DataVersion dataVersion; //broker 的 topic 配置的数据版本。这个用来在 broker 注册或者重新注册时，比较和更新 NameServer 中的 topic 信息
+private Channel channel; //broker 和 NameServer 之间的通道。这个用来进行通信和发送请求或者响应
+private String haServerAddr; //broker 的高可用服务器的地址。这个用来让其他的 broker 或者消费者连接到 broker 进行数据复制或者消费
+```
+
+
+
+
+
+### 注册
+
+注册发生在Broker启动之后，启动后快速与NameServer建立长连接，并每30s对NameService发送一次心跳包，Broker会将自己的IP Address、Port、Router 等信息随着心跳一并注册到 NameServer中
+![image](https://img2022.cnblogs.com/blog/167509/202208/167509-20220820174251739-9268249.png)
+这里的RouterInfo 主要指Broker下包含哪些Topic信息，这种映射关系方便后面消息的生产和消费的时候进行寻址
+
+注册使用到的核心数据结构如下：
+`HashMap<String BrokerName, BrokerData> brokerAddrTable`
+
+- HashMap 的 Key 是 Broker 的名称，存储了一个Broker服务所对应的属性信息。
+- Value 是个对象，数据结构如下
+
+
+
 
 
 
@@ -14,8 +130,6 @@
 - **ConsumeQueue**：消息中间件一般都是基于Topic的订阅与发布模式，消息消费时必须按照主题进行筛选消息，显然从Commitlog文件中按照topic去筛选消息会变得及其低效，为了提高根据主题检索消息的效率，RocketMQ引入了ConsumeQueue文件，俗成消费队列文件
 - **index文件**：**关系型数据库可以按照字段属性进行记录检索，作为一款主要面向业务开发的消息中间件，RocketMQ也提供了基于消息属性的检索能力，底层的核心设计理念是为Commitlog文件建立哈希索引，并存储在Index文件中**
 
-
-
 - 在RocketMQ中顺序写入到Commitlog文件后，ConsumeQueue与Index文件都是异步构建的，其数据流向图如下
 
 ![1674133236559](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803370.png)
@@ -26,7 +140,7 @@
 
 ### CommitLog的命名规则
 
-- 从上面的图中也可以看得出来，其文件的命名也及其巧妙，使用该存储在消息文件中的第一个全局偏移量来命名文件文件名长度为20位，左边补零，剩余为起始偏移量，比如00000000000000000000代表了第一个文件，起始偏移量为0，文件大小为1G=1073741824；消息主要是顺序写入日志文件，当文件满了，写入下一个文件；这样的设计主要是方便根据消息的物理偏移量，快速定位到消息所在的物理文件，第二个文件为00000000001073741824，起始偏移量为1073741824，以此类推
+- 从上面的图中也可以看得出来，其文件的命名也极其巧妙，使用该存储在消息文件中的第一个全局偏移量来命名文件文件名长度为20位，左边补零，剩余为起始偏移量，比如00000000000000000000代表了第一个文件，起始偏移量为0，文件大小为1G=1073741824；消息主要是顺序写入日志文件，当文件满了，写入下一个文件；这样的设计主要是方便根据消息的物理偏移量，快速定位到消息所在的物理文件，第二个文件为00000000001073741824，起始偏移量为1073741824，以此类推
 
 ### CommitLog的性能读写
 
@@ -40,6 +154,10 @@
 ![1674133537310](https://raw.githubusercontent.com/feixue-altaaa/picture/master/pic/202402211803391.png)
 
 ## ConsumeQueue的读取模式
+
+在 RocketMQ 中，消费者消费消息的过程涉及多个步骤，其中包括从 ConsumeQueue 中获取消息索引，然后根据索引从 CommitLog 中读取消息
+
+![output (2).png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9f5a46c405264446b46659ff24d0253b~tplv-k3u1fbpfcp-jj-mark:3024:0:0:0:q75.awebp#?w=1900&h=1580&s=104342&e=png&b=fffefe)
 
 - ConsumeQueue消息消费队列，引入的目的主要是提高消息消费的性能，由于RocketMQ是基于主题topic的订阅模式，消息消费是针对主题进行的，如果要遍历commitlog文件中根据topic检索消息是非常低效的
 
@@ -759,3 +877,6 @@ Apache RocketMQ 在 4.3.0 版中已经支持分布式事务消息，这里 Rocke
 
 
 
+# question
+
+为什么需要commitlog，消息生产之后直接放到消费队列不可以吗
